@@ -1,0 +1,18 @@
+%!korml version 1.0
+---
+entity_0_0: "double value 0"
+entity_0_1: |
+  literal line one 1
+  literal line two 1
+
+entity_0_2:  # roundtrip comment
+  # generated comment
+  key_2_0: value_2000  # fuzz comment
+  key_2_1: 'single value 2001'
+  key_2_2: 'single value 2002'
+entity_0_3: value_3
+entity_0_4: >
+  folded line one 4
+
+  folded line two 4
+...

@@ -1,0 +1,16 @@
+%!korml version 1.0
+---
+entity_0_0: {key_0_0: [key_0_0: "folded line one 0\nfolded line two 0\n"]}
+entity_0_1: value_1
+
+# lexer should preserve this
+entity_0_2: >
+  folded line one 2
+
+  folded line two 2  # fuzz comment
+entity_0_3: value_3
+entity_0_4: >
+  folded line one 4
+
+  folded line two 4
+...

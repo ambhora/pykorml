@@ -1,0 +1,160 @@
+(********************************************************************************)
+(* 1. CHARACTER CLASSES (used only inside the lexer, not emitted as tokens)     *)
+(********************************************************************************)
+
+Digit              = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+HSpace             = " " | "\t" ;
+NEWLINE_CHAR       = "\n" ;
+InnerSpace         = " " ;
+
+SpecialChar        = ":" | "#" | "{" | "}" | "[" | "]" | "'" | '"' ;
+
+NonSpecialChar     = ? any character except HSpace, NEWLINE_CHAR, SpecialChar ? ;
+
+
+(********************************************************************************)
+(* 2. LOW-LEVEL TOKENS: WHITESPACE, COMMENT, NEWLINE, EOF                        *)
+(********************************************************************************)
+
+WS                 = HSpace { HSpace } ;
+
+CommentText        = { ? any character except NEWLINE_CHAR ? } ;
+COMMENT            = "#" [CommentText] ;
+
+NEWLINE            = NEWLINE_CHAR ;
+EOF                = ? end of file ? ;
+
+
+(********************************************************************************)
+(* 3. INDENTATION TOKENS (Python-style, produced by indentation logic)          *)
+(********************************************************************************)
+
+INDENT             = (* generated when indentation increases from previous content line *) ;
+DEDENT             = (* generated when indentation decreases to a previous indentation level *) ;
+
+
+(********************************************************************************)
+(* 4. SCALAR TOKENS                                                             *)
+(********************************************************************************)
+
+(* 4.1 Plain scalar (single unquoted form; may contain spaces) *)
+PlainChar          = NonSpecialChar | InnerSpace ;
+PlainScalarText    = PlainChar { PlainChar } ;
+PLAIN_SCALAR       = PlainScalarText ;
+
+(* 4.2 Single-quoted scalar ('' represents a literal ') *)
+SingleQuotedChar   =
+      "''"
+    | ? any character except "'" and NEWLINE_CHAR ? ;
+
+SQ_SCALAR          = "'" SingleQuotedChar* "'" ;
+
+(* 4.3 Double-quoted scalar (supports escapes: \\ \" \n \t) *)
+DoubleEscape       = '"' | "\\" | "n" | "t" ;
+
+DoubleQuotedChar   =
+      "\\" DoubleEscape
+    | ? any character except '"' and NEWLINE_CHAR ? ;
+
+DQ_SCALAR          = '"' DoubleQuotedChar* '"' ;
+
+(* 4.4 Block scalars *)
+LiteralBlockHeader   = "|" HSpace* NEWLINE_CHAR ;
+FoldedBlockHeader    = ">" HSpace* NEWLINE_CHAR ;
+
+BlockScalarLine      = { ? any character except NEWLINE_CHAR ? } NEWLINE_CHAR ;
+
+LITERAL_BLOCK_SCALAR =
+    LiteralBlockHeader
+    { BlockScalarLine } ;
+
+FOLDED_BLOCK_SCALAR  =
+    FoldedBlockHeader
+    { BlockScalarLine } ;
+
+
+(********************************************************************************)
+(* 5. PUNCTUATION, DIRECTIVES, DOCUMENT MARKERS                                 *)
+(********************************************************************************)
+
+LBRACE             = "{" ;
+RBRACE             = "}" ;
+LBRACKET           = "[" ;
+RBRACKET           = "]" ;
+COLON              = ":" ;
+COMMA              = "," ;
+
+VERSION_DIRECTIVE  = "%!korml" WS Digit { Digit | "." } NEWLINE_CHAR ;
+
+DOC_START          = "---" HSpace* NEWLINE_CHAR ;
+DOC_END            = "..." HSpace* NEWLINE_CHAR ;
+
+(********************************************************************************)
+(* LEXER CONDITION: LineStart                                                   *)
+(********************************************************************************)
+
+(* LineStart is a lexer condition, not a grammar symbol.
+
+   LineStart is true when:
+   - the current input position is at the beginning of the file, OR
+   - the previous token emitted was NEWLINE,
+
+   AND
+   - the indentation prefix of the current physical line
+     has already been consumed and processed (INDENT/DEDENT
+     tokens emitted as needed),
+
+   AND
+   - no other non-indentation token has yet been emitted
+     on the current line.
+*)
+
+
+(********************************************************************************)
+(* 6. SEQUENCE DASH_ITEM TOKEN (line-start only, lexer condition)               *)
+(********************************************************************************)
+
+(* Only emit DASH_ITEM when '-' occurs at logical line start after indentation *)
+DASH_ITEM          = LineStart "-" ( HSpace | NEWLINE_CHAR ) ;
+
+
+(********************************************************************************)
+(* 7. LEXER START SYMBOLS                                                       *)
+(********************************************************************************)
+
+Token =
+    (* Whitespace, comments, newlines *)
+      WS
+    | COMMENT
+    | NEWLINE
+
+    (* Indentation tokens *)
+    | INDENT
+    | DEDENT
+
+    (* Document markers and directives *)
+    | VERSION_DIRECTIVE
+    | DOC_START
+    | DOC_END
+
+    (* Flow collection punctuation *)
+    | LBRACE
+    | RBRACE
+    | LBRACKET
+    | RBRACKET
+    | COLON
+    | COMMA
+
+    (* Sequence item dash *)
+    | DASH_ITEM
+
+    (* Scalars *)
+    | LITERAL_BLOCK_SCALAR
+    | FOLDED_BLOCK_SCALAR
+    | SQ_SCALAR
+    | DQ_SCALAR
+    | PLAIN_SCALAR
+    ;
+
+TokenStream = { Token } EOF ;

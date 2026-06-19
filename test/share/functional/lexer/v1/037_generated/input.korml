@@ -1,0 +1,14 @@
+%!korml version 1.0
+---
+entity_0_0: >
+  folded line one 0
+
+  folded line two 0
+entity_0_1:
+- "double value 1000"
+- key_1001_0: 'single value 1001000'
+- 'single value 1002'
+entity_0_2: 'single value 2'  # lexer should preserve this
+entity_0_3: 'single value 3'
+entity_0_4: [['single value 4000000']]  # roundtrip comment
+...

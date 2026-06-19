@@ -1,0 +1,12 @@
+%!korml version 1.0
+---
+entity_0_0:
+- 'single value 0'
+
+entity_0_1: |
+  literal line one 1
+  literal line two 1
+entity_0_2: {key_2_0: ["double value 2000000", {key_2000001_0: "folded line one 2000001000\nfolded line two 2000001000\n", key_2000001_1: "literal line one 2000001001\nliteral line two 2000001001\n", key_2000001_2: "folded line one 2000001002\nfolded line two 2000001002\n"}, value_2000002]}
+entity_0_3: {key_3_0: 'single value 3000', key_3_1: {key_3001_0: "literal line one 3001000\nliteral line two 3001000\n"}, key_3_2: value_3002}
+entity_0_4: {key_4_0: "folded line one 4000\nfolded line two 4000\n", key_4_1: {key_4001_0: ["double value 4001000000", value_4001000001, value_4001000002], key_4001_1: {key_4001001_0: "literal line one 4001001000\nliteral line two 4001001000\n"}, key_4001_2: "literal line one 4001002\nliteral line two 4001002\n"}, key_4_2: ["literal line one 4002000\nliteral line two 4002000\n", "literal line one 4002001\nliteral line two 4002001\n", ["folded line one 4002002000\nfolded line two 4002002000\n", "literal line one 4002002001\nliteral line two 4002002001\n", value_4002002002]]}
+...

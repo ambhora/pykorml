@@ -1,0 +1,79 @@
+% --------------------------------------------------------------------------------------------------
+% SPDX-License-Identifier: CC-BY-4.0
+% Copyright (C) 2022 Jayesh Badwaik <j.badwaik@fz-juelich.de>
+% --------------------------------------------------------------------------------------------------
+\ProvidesPackage{penchmath}
+\RequirePackage{fontspec}
+\RequirePackage{microtype}
+\PassOptionsToPackage{final}{microtype}
+\RequirePackage{unicode-math}
+
+\RequirePackage{bigints}
+\RequirePackage{amsmath}
+
+
+\makeatletter
+\newcommand*\pdot{\mathpalette\pdot@{.5}}
+\newcommand*\pdot@[2]{\mathbin{\vcenter{\hbox{\scalebox{#2}{$\m@th#1\bullet$}}}}}
+\makeatother
+
+\newcommand*{\reals}{\mathbb{R}}
+\newcommand*{\naturals}{\mathbb{N}}
+
+\newcommand*{\mcomma}{\,\text{,}}
+\newcommand*{\mperiod}{\,\text{.}}
+
+
+\newcommand*{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand*{\abs}[1]{\left\lvert #1 \right\rvert}
+\newcommand*{\innerproduct}[1]{\left\langle#1 \right\rangle}
+\newcommand*{\from}{\colon}
+
+\renewcommand*{\arraystretch}{1.3}
+
+\newcommand{\diff}{\mathop{}\!\mathrm{d}}
+
+\DeclareMathOperator{\sign}{sgn}
+
+\newcommand*{\loc}{\text{loc}}
+
+%% Different Derivatives
+% Ordinary Derivative
+\newcommand*{\dd}[3][]{%
+  \ifthenelse{\equal{#1}{}}
+  {\frac{\rmd #2}{\rmd #3}}%
+  {\frac{\rmd^{#1}#2}{{\rmd #3}^{#1}}}%
+}
+
+% Partial Derivative
+\newcommand*{\pdd}[3][]{%
+  \ifthenelse{\equal{#1}{}}
+  {\frac{\partial #2}{\partial #3}}%
+  {\frac{\partial^{#1} #2}{\partial #3^{#1}}}%
+}
+
+
+\newcommand*{\grad}[1][]
+{
+  \ifthenelse{\equal{#1}{}}
+  { \nabla }
+  { \nabla_{#1} }
+}
+
+\newcommand*{\curl}[1][]{
+  \ifthenelse{\equal{#1}{}}
+  {\nabla \times}
+  {\nabla_{#1} \times}
+}
+
+
+\AtBeginDocument{
+  \let\division\div
+  \let\div\relax
+  \newcommand*{\div}[1][]{
+    \ifthenelse{\equal{#1}{}}
+    {\nabla \pdot}
+    {\nabla_{#1} \pdot}
+  }
+}
+

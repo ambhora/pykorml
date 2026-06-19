@@ -1,0 +1,75 @@
+# ------------------------------------------------------------------------------
+# SPDX-License-Identifier: Apache-2.0
+# ------------------------------------------------------------------------------
+quality.typecheck:
+  tags: ["docker"]
+  image: python:latest
+  before_script:
+    - python -m venv /root/venv
+    - source /root/venv/bin/activate
+    - pip install --upgrade pip
+    - pip install hatch
+    - hatch env create mypy
+  script:
+    - hatch env run --env mypy -- mypy .
+
+test:
+  tags: ["docker"]
+  image: python:latest
+  before_script:
+    - python -m venv /root/venv
+    - source /root/venv/bin/activate
+    - pip install --upgrade pip
+    - pip install hatch
+    - hatch env create test
+  script:
+    - hatch env run --env test --  pytest
+
+license.check:
+  tags: ["docker"]
+  stage: .post
+  dependencies: []
+  image:
+    name: fsfe/reuse
+    entrypoint: ["/bin/sh", "-c"]
+  script:
+    - reuse lint
+
+
+docs:
+  image: python:3.11-slim
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+  before_script:
+    # Python / Hatch for MkDocs
+    - pip install --upgrade pip
+    - pip install hatch
+    - python --version
+    - hatch --version
+    # Node.js for Log4Brains
+    - apt-get update
+  script:
+    # Build MkDocs (outputs to ./site)
+    - hatch --env docs run -- mkdocs build
+    # Publish for GitLab Pages
+    - mv site public
+
+
+publish:
+  stage: deploy
+  image: alpine:latest
+  pages: true
+  only:
+    - main
+  tags:
+    - docker
+  dependencies:
+    - docs
+  script:
+    - echo "Deploying to GitLab Pages..."
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week

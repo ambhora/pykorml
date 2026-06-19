@@ -1,0 +1,16 @@
+%!korml version 1.0
+---
+entity_0_0:
+- ["double value 0"]
+
+entity_0_1:  # roundtrip comment
+- "double value 1000"
+# fuzz comment
+entity_0_2:  # lexer should preserve this
+
+  key_2_0: [["literal line one 2000000000\nliteral line two 2000000000\n", "double value 2000000001", value_2000000002], {key_2000001_0: value_2000001000, key_2000001_1: "literal line one 2000001001\nliteral line two 2000001001\n"}, "literal line one 2000002\nliteral line two 2000002\n"]  # fuzz comment
+
+entity_0_3: "double value 3"  # lexer should preserve this
+
+entity_0_4: {key_4_0: 'single value 4000', key_4_1: ["literal line one 4001000\nliteral line two 4001000\n", ["literal line one 4001001000\nliteral line two 4001001000\n"], "folded line one 4001002\nfolded line two 4001002\n"]}
+...

@@ -1,0 +1,4 @@
+%!korml version 1.0
+---
+missing_double_separator: ["one" "two"]
+key: value

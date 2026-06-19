@@ -1,0 +1,26 @@
+%!korml version 1.0
+---
+entity_0_0: >
+  folded line one 0
+
+  folded line two 0
+entity_0_1:
+- "double value 1000"
+- |
+  literal line one 1001
+  literal line two 1001
+- >
+  folded line one 1002
+
+  folded line two 1002  # roundtrip comment
+entity_0_2: value_2
+entity_0_3:
+
+- key_3000_0: 'single value 3000000'
+  key_3000_1: |
+    literal line one 3000001
+    literal line two 3000001
+
+# generated comment
+entity_0_4: value_4
+...

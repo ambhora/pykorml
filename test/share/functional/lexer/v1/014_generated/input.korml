@@ -1,0 +1,14 @@
+%!korml version 1.0
+---
+entity_0_0: >
+  folded line one 0
+
+  folded line two 0
+entity_0_1: value_1  # generated comment
+entity_0_2: {key_2_0: ["literal line one 2000000\nliteral line two 2000000\n"]}
+entity_0_3: "double value 3"
+entity_0_4:
+# lexer should preserve this
+- - "double value 4000000"
+  - 'single value 4000001'  # lexer should preserve this
+...

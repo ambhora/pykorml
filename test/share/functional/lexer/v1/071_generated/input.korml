@@ -1,0 +1,19 @@
+%!korml version 1.0
+---
+entity_0_0: "double value 0"
+# roundtrip comment
+entity_0_1:
+  key_1_0: |
+    literal line one 1000
+    literal line two 1000
+  key_1_1: |
+    literal line one 1001
+    literal line two 1001
+entity_0_2: |
+  literal line one 2
+  literal line two 2
+entity_0_3:  # generated comment
+  key_3_0: "double value 3000"
+
+entity_0_4: [value_4000, 'single value 4001', [value_4002000]]
+...

@@ -1,0 +1,4 @@
+%!korml version 1.0
+---
+literal_block_inside_flow: [|]
+key: value

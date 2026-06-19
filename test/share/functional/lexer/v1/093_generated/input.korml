@@ -1,0 +1,37 @@
+%!korml version 1.0
+---
+entity_0_0:
+  key_0_0: ["double value 0"]
+  key_0_1: value_1
+entity_0_1:
+  # roundtrip comment
+  key_1_0: >
+    folded line one 1000
+
+
+    folded line two 1000  # roundtrip comment
+  key_1_1: |
+    literal line one 1001
+    literal line two 1001
+
+entity_0_2:
+
+  key_2_0: [key_2000000_0: "double value 2000000000"]
+  key_2_1:  # fuzz comment
+    key_2001_0:
+      key_2001000_0: "double value 2001000000"
+    # generated comment
+    key_2001_1: >
+      folded line one 2001001
+# generated comment
+
+      folded line two 2001001
+  key_2_2: ['single value 2002000', 'single value 2002001']
+entity_0_3:
+  key_3_0: >
+    folded line one 3000
+
+
+    folded line two 3000  # generated comment
+entity_0_4: ['single value 4000', "folded line one 4001\nfolded line two 4001\n"]
+...

@@ -1,0 +1,12 @@
+%!korml version 1.0
+---
+entity_0_0: value_0
+entity_0_1:
+  key_1_0: {key_1000_0: ['single value 1000000000'], key_1000_1: 'single value 1000001'}
+  # lexer should preserve this
+  key_1_1: [value_1001000, ["folded line one 1001001000\nfolded line two 1001001000\n"]]
+  key_1_2: "double value 1002"
+entity_0_2: 'single value 2'
+entity_0_3: value_3
+entity_0_4: [key_4000_0: {key_4000000_0: 'single value 4000000000', key_4000000_1: 'single value 4000000001', key_4000000_2: "folded line one 4000000002\nfolded line two 4000000002\n"}, "double value 4001"]  # lexer should preserve this
+...

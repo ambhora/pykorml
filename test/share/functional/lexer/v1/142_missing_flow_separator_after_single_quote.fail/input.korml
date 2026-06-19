@@ -1,0 +1,4 @@
+%!korml version 1.0
+---
+missing_single_separator: ['one' 'two']
+.dot_plain

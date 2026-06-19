@@ -1,0 +1,13 @@
+%!korml version 1.0
+---
+entity_0_0: value_0
+entity_0_1:
+  key_1_0: 'single value 1000'  # generated comment
+entity_0_2:
+  key_2_0: |
+    literal line one 2000
+    literal line two 2000
+  key_2_1: value_2001
+entity_0_3: value_3
+entity_0_4: {key_4_0: {key_4000_0: {key_4000000_0: "double value 4000000000"}, key_4000_1: ["double value 4000001000"], key_4000_2: value_4000002}, key_4_1: value_4001, key_4_2: {key_4002_0: {key_4002000_0: "double value 4002000000", key_4002000_1: "double value 4002000001", key_4002000_2: "folded line one 4002000002\nfolded line two 4002000002\n"}}}
+...

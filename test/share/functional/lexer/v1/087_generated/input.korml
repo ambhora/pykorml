@@ -1,0 +1,28 @@
+%!korml version 1.0
+---
+# fuzz comment
+entity_0_0: |
+  literal line one 0
+  literal line two 0
+
+entity_0_1: ["double value 1000", "double value 1001"]  # lexer should preserve this
+
+# lexer should preserve this
+entity_0_2:
+
+# roundtrip comment
+- - value_2000000
+  - 'single value 2000001'
+- {key_2001_0: {key_2001000_0: 'single value 2001000000'}, key_2001_1: ["folded line one 2001001000\nfolded line two 2001001000\n", "double value 2001001001"]}  # fuzz comment
+- |
+  literal line one 2002
+  literal line two 2002
+entity_0_3:
+  key_3_0: {key_3000_0: ["folded line one 3000000000\nfolded line two 3000000000\n"], key_3000_1: "literal line one 3000001\nliteral line two 3000001\n", key_3000_2: value_3000002}
+
+  key_3_1: |
+    literal line one 3001
+    literal line two 3001
+# roundtrip comment
+entity_0_4: {key_4_0: {key_4000_0: "folded line one 4000000\nfolded line two 4000000\n"}, key_4_1: 'single value 4001'}  # generated comment
+...

@@ -1,0 +1,16 @@
+%!korml version 1.0
+---
+entity_0_0: 'single value 0'
+entity_0_1: 'single value 1'
+entity_0_2: >
+  folded line one 2
+
+  folded line two 2
+entity_0_3: >
+  folded line one 3
+
+  # generated comment
+  folded line two 3
+
+entity_0_4: value_4
+...

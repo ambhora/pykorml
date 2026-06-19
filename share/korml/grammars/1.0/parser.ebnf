@@ -1,0 +1,146 @@
+(********************************************************************************)
+(* 1. PARSER HELPERS (WS, COMMENT, LINEEND, INTER-DOCUMENT WS, EMPTY)           *)
+(********************************************************************************)
+
+empty =
+    ? empty production (no tokens) ? ;
+
+WSOpt =
+      WS { WS }
+    | empty ;
+
+COMMENTOpt =
+      COMMENT
+    | empty ;
+
+LineEnd =
+    WSOpt COMMENTOpt NEWLINE ;
+
+InterDocumentWS =
+    { WSOpt COMMENTOpt NEWLINE } ;
+
+InterDocumentWSOpt =
+      InterDocumentWS
+    | empty ;
+
+
+(********************************************************************************)
+(* 2. TOP-LEVEL DOCUMENT STRUCTURE                                              *)
+(********************************************************************************)
+
+DocumentStream =
+    ( InterDocumentWSOpt Document )
+    { InterDocumentWS Document }
+    InterDocumentWSOpt EOF ;
+
+Document =
+    [VERSION_DIRECTIVE]
+    [DOC_START]
+    Node
+    InterDocumentWSOpt
+    DOC_END ;
+
+
+(********************************************************************************)
+(* 3. NODES AND BLOCK STRUCTURE                                                 *)
+(********************************************************************************)
+
+Node =
+      Scalar
+    | FlowMapping
+    | FlowSequence
+    | BlockNode ;
+
+BlockNode =
+    INDENT BlockNodeBody DEDENT ;
+
+BlockNodeBody =
+      MappingEntryPlus
+    | SequenceItemPlus ;
+
+MappingEntryPlus =
+    MappingEntry { MappingEntry } ;
+
+SequenceItemPlus =
+    SequenceItem { SequenceItem } ;
+
+
+(********************************************************************************)
+(* 4. MAPPING ENTRIES                                                          *)
+(********************************************************************************)
+
+MappingEntry =
+    Key WSOpt COLON MappingEntryTail ;
+
+MappingEntryTail =
+      WSOpt InlineValue LineEnd
+      [NestedNode]
+
+    | WSOpt LineEnd
+      NestedNode ;
+
+NestedNode =
+    INDENT Node DEDENT ;
+
+Key =
+      PLAIN_SCALAR
+    | SQ_SCALAR
+    | DQ_SCALAR ;
+
+
+(********************************************************************************)
+(* 5. SEQUENCE ITEMS                                                           *)
+(********************************************************************************)
+
+SequenceItem =
+    DASH_ITEM SequenceItemTail ;
+
+SequenceItemTail =
+      [InlineValue] LineEnd
+      [NestedNode] ;
+
+InlineValue =
+      Scalar
+    | FlowMapping
+    | FlowSequence ;
+
+
+(********************************************************************************)
+(* 6. SCALAR NODES                                                             *)
+(********************************************************************************)
+
+Scalar =
+      PLAIN_SCALAR
+    | SQ_SCALAR
+    | DQ_SCALAR
+    | TQ_SCALAR
+    | BLOCK_SCALAR ;
+
+
+(********************************************************************************)
+(* 7. FLOW COLLECTIONS                                                         *)
+(********************************************************************************)
+
+NodeListOpt =
+      NodeList
+    | empty ;
+
+NodeList =
+    Node { WSOpt COMMA WSOpt Node } ;
+
+FlowPairListOpt =
+      FlowPairList
+    | empty ;
+
+FlowPairList =
+    FlowPair { WSOpt COMMA WSOpt FlowPair } ;
+
+FlowSequence =
+    LBRACKET WSOpt NodeListOpt WSOpt RBRACKET ;
+
+FlowMapping =
+    LBRACE WSOpt FlowPairListOpt WSOpt RBRACE ;
+
+FlowPair =
+    Key WSOpt COLON WSOpt Node ;
+

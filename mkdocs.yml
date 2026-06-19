@@ -1,0 +1,204 @@
+# --------------------------------------------------------------------------------------------------
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2025 Jayesh Badwaik <j.badwaik@fz-juelich.de>
+# --------------------------------------------------------------------------------------------------
+site_name: korml
+site_url: https://ambhora.gitlab.io/software/korml
+docs_dir: docs/website
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+  palette:
+    scheme: kosha
+
+nav:
+  - Home: index.md
+  - Reference:
+      - Overview: reference/index.md
+      - Syntax: reference/syntax.md
+      - Specification: reference/specification/index.md
+      - API: reference/api.md
+  - Explanation:
+      - Overview: explanation/index.md
+      - Language: explanation/language/index.md
+      - Compiler: explanation/compiler/index.md
+
+
+
+plugins:
+  # Built-in full-text search plugin
+  # Enables client-side search with English stemming and a custom word separator
+  # Docs: https://www.mkdocs.org/user-guide/configuration/#search
+  - search:
+      lang: en                # Use English for stemming
+      separator: '[\s\-]+'    # Treat spaces and hyphens as word boundaries
+
+  # Built-in Blog Plugin
+  - blog:
+      # Enables the blog feature
+      enabled: true
+
+  ## Numbered Headings plugin
+  ## Automatically adds numbers to headings in the documentation
+  #- add-number:
+  #    order: 2
+
+
+  # mkdocstrings plugin to auto-generate API documentation from docstrings
+  # Docs: https://mkdocstrings.github.io/
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_toc_entry: false
+            heading_level: 2
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            type_parameter_headings: true
+            show_root_full_path: true
+            members: true
+
+watch:
+  - src/korml
+
+
+extra:
+  # Disables the "Made with Material for MkDocs" generator meta tag in HTML
+  # This removes <meta name="generator" content="..."> from the page head
+  # Docs: https://squidfunk.github.io/mkdocs-material/setup/setting-up-site-analytics/#generator-meta-tag
+  generator: false
+
+
+extra_javascript:
+  # Polyfill for ES6+ features to support older browsers
+  # Docs: https://polyfill.io/v3/
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+
+  # MathJax v3 core library (loads TeX input and CHTML output processors)
+  # CDN: https://www.jsdelivr.com/package/npm/mathjax
+  # Docs: https://docs.mathjax.org/en/latest/web/components/combined.html
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  # Enables abbreviations like *[HTML]: HyperText Markup Language
+  # https://python-markdown.github.io/extensions/abbreviations/
+  - abbr
+
+  # Allows admonition blocks (!!! note, !!! warning, etc.)
+  # https://squidfunk.github.io/mkdocs-material/reference/admonitions/
+  - admonition
+
+  # Adds support for setting attributes on elements using {: ...}
+  # https://python-markdown.github.io/extensions/attr_list/
+  - attr_list
+
+  # Enables definition lists
+  # https://python-markdown.github.io/extensions/definition_lists/
+  - def_list
+
+  # Adds footnote syntax support like [^1]
+  # https://python-markdown.github.io/extensions/footnotes/
+  - footnotes
+
+  # Allows Markdown inside raw HTML tags
+  # https://python-markdown.github.io/extensions/md_in_html/
+  - md_in_html
+
+  # Table of Contents with anchor link support
+  # https://python-markdown.github.io/extensions/toc/
+  - toc:
+      permalink: true
+
+  # Math rendering with Arithmatex (KaTeX/MathJax)
+  # https://facelessuser.github.io/pymdown-extensions/extensions/arithmatex/
+  - pymdownx.arithmatex:
+      generic: true
+
+  # Smarter emphasis parsing (*, _)
+  # https://facelessuser.github.io/pymdown-extensions/extensions/betterem/
+  - pymdownx.betterem:
+      smart_enable: all
+
+  # Superscript (^) and subscript (~) syntax
+  # https://facelessuser.github.io/pymdown-extensions/extensions/caret/
+  - pymdownx.caret
+
+  # Collapsible sections using ??? and details tags
+  # https://facelessuser.github.io/pymdown-extensions/extensions/details/
+  - pymdownx.details
+
+  # Emoji support using Material Icons (Twemoji)
+  # https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown-extensions/#emoji
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+
+  # Enhanced syntax highlighting with line anchors
+  # https://facelessuser.github.io/pymdown-extensions/extensions/highlight/
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+
+  # Inline code highlighting (e.g., ==highlight==)
+  # https://facelessuser.github.io/pymdown-extensions/extensions/inlinehilite/
+  - pymdownx.inlinehilite
+
+  # Render keyboard key combinations (e.g., ++Ctrl+S++)
+  # https://facelessuser.github.io/pymdown-extensions/extensions/keys/
+  - pymdownx.keys
+
+  # Auto-link plain URLs and GitHub-style references
+  # https://facelessuser.github.io/pymdown-extensions/extensions/magiclink/
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: dare.pages.jsc.fz-juelich.de
+      repo: public
+
+  # Highlighted text using ==highlight==
+  # https://facelessuser.github.io/pymdown-extensions/extensions/mark/
+  - pymdownx.mark
+
+  # Converts common symbols (like --> into →)
+  # https://facelessuser.github.io/pymdown-extensions/extensions/smartsymbols/
+  - pymdownx.smartsymbols
+
+  # Includes external Markdown files or snippets
+  # https://facelessuser.github.io/pymdown-extensions/extensions/snippets/
+  - pymdownx.snippets:
+      auto_append:
+        - includes/mkdocs.md
+
+  # Advanced code blocks and support for diagram tools like Mermaid
+  # https://facelessuser.github.io/pymdown-extensions/extensions/superfences/
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+  # Tabbed content blocks (useful for comparisons or languages)
+  # https://facelessuser.github.io/pymdown-extensions/extensions/tabbed/
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+
+  # Task lists with checkboxes
+  # https://facelessuser.github.io/pymdown-extensions/extensions/tasklist/
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+  # Additional support for superscript and subscript using ~ and ^
+  # https://facelessuser.github.io/pymdown-extensions/extensions/tilde/
+  - pymdownx.tilde

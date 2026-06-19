@@ -1,0 +1,13 @@
+%!korml version 1.0
+---
+entity_0_0: |
+  literal line one 0
+  literal line two 0
+entity_0_1: |
+  literal line one 1
+  literal line two 1
+
+entity_0_2: [[["double value 2000000000", value_2000000001], ['single value 2000001000', 'single value 2000001001', 'single value 2000001002']]]  # fuzz comment
+entity_0_3: 'single value 3'
+entity_0_4: value_4
+...

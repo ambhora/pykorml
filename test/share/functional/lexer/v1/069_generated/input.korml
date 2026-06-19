@@ -1,0 +1,23 @@
+%!korml version 1.0
+---
+entity_0_0: 'single value 0'
+entity_0_1: "double value 1"  # lexer should preserve this
+entity_0_2: "double value 2"
+entity_0_3:
+
+  key_3_0: value_3000
+
+  key_3_1: [["literal line one 3001000000\nliteral line two 3001000000\n", value_3001000001, 'single value 3001000002'], key_3001001_0: "literal line one 3001001000\nliteral line two 3001001000\n", value_3001002]
+  key_3_2:
+  - |
+    literal line one 3002000
+    literal line two 3002000
+  # lexer should preserve this
+  - ["literal line one 3002001000\nliteral line two 3002001000\n", 'single value 3002001001']
+  - ['single value 3002002000', "literal line one 3002002001\nliteral line two 3002002001\n", value_3002002002]
+# generated comment
+entity_0_4: >
+  folded line one 4
+
+  folded line two 4  # fuzz comment
+...

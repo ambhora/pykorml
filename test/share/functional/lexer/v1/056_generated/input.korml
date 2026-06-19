@@ -1,0 +1,20 @@
+%!korml version 1.0
+---
+
+entity_0_0: >
+  folded line one 0
+
+
+  folded line two 0
+entity_0_1:
+- 'single value 1000'
+- value_1001
+# lexer should preserve this
+- value_1002
+entity_0_2: "double value 2"
+entity_0_3: "double value 3"  # lexer should preserve this
+entity_0_4: >
+  folded line one 4
+
+  folded line two 4
+...

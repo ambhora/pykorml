@@ -1,0 +1,8 @@
+%!korml version 1.0
+---
+entity_0_0: value_0
+entity_0_1: 'single value 1'
+entity_0_2: 'single value 2'
+entity_0_3: value_3
+entity_0_4: ["double value 4000"]  # fuzz comment
+...

@@ -1,0 +1,16 @@
+%!korml version 1.0
+---
+entity_0_0: |
+  literal line one 0
+  literal line two 0
+entity_0_1:
+- {key_1000_0: 'single value 1000000'}
+# roundtrip comment
+- ['single value 1001000', "literal line one 1001001\nliteral line two 1001001\n", ["double value 1001002000"]]
+
+# generated comment
+entity_0_2: {key_2_0: "literal line one 2000\nliteral line two 2000\n"}
+# fuzz comment
+entity_0_3: value_3
+entity_0_4: value_4
+...

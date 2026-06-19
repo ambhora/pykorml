@@ -1,0 +1,20 @@
+%!korml version 1.0
+---
+
+entity_0_0: [value_0]
+entity_0_1: [["folded line one 1000000\nfolded line two 1000000\n"], "literal line one 1001\nliteral line two 1001\n"]
+entity_0_2: {key_2_0: "double value 2000"}  # fuzz comment
+entity_0_3: >
+  folded line one 3
+
+  folded line two 3  # fuzz comment
+# lexer should preserve this
+entity_0_4:
+- {key_4000_0: "literal line one 4000000\nliteral line two 4000000\n", key_4000_1: 'single value 4000001', key_4000_2: "folded line one 4000002\nfolded line two 4000002\n"}
+
+- |
+  literal line one 4001
+  literal line two 4001
+
+- ["folded line one 4002000\nfolded line two 4002000\n", {key_4002001_0: "folded line one 4002001000\nfolded line two 4002001000\n", key_4002001_1: "double value 4002001001", key_4002001_2: "literal line one 4002001002\nliteral line two 4002001002\n"}]
+...

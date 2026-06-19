@@ -1,0 +1,238 @@
+% SPDX-License-Identifier: MIT
+% Copyright (c) 2017-2023 Forschungszentrum Juelich GmbH
+% This code is licensed under MIT license (see the LICENSE file for details)
+%
+% Latex-Beamer Template for Forschungszentrum Juelich
+% Version 18.12
+% Please report any problems at
+% https://jugit.fz-juelich.de/fzj-beamer/beamertheme
+% This version does support pdflatex, xelatex and lualatex
+%
+\ProvidesPackage{beamerthemeJuelich}%
+           [2018/12/14 v18.12
+            Research Centre Juelich Beamer Template]%
+
+\RequirePackage{ifluatex,ifxetex,ifpdf}
+\RequirePackage{etoolbox}
+\RequirePackage{tikz}
+\RequirePackage{calc}
+\RequirePackage{textcase}
+\RequirePackage{ifthen}
+\usetikzlibrary{calc}
+\usetikzlibrary{external}
+
+\ifluatex
+  \RequirePackage{microtype}
+  \RequirePackage{fontspec}
+  \setmainfont{LiberationSans}
+  \setsansfont{LiberationSans}
+  \setmonofont{LiberationMono}
+\else\ifxetex
+  \RequirePackage{fontspec}
+  \setmainfont{LiberationSans}
+  \setsansfont{LiberationSans}
+  \setmonofont{LiberationMono}
+\else
+  \RequirePackage{helvet}
+  \RequirePackage{microtype}
+\fi\fi
+
+
+
+\newcommand{\fzjset}[1]{\pgfkeys{/beamerfzj/.cd,#1}}
+
+\pgfkeys{/beamerfzj/.cd,
+  .search also={
+    /beamerfzj/inner,
+    /beamerfzj/outer,
+    /beamerfzj/color,
+    /beamerfzj/font,
+  }
+}
+
+\pgfkeys{/beamerfzj/.cd,
+  pages layout/.code={%
+        \usepackage{pgf}
+        \usepackage{pgfpages}
+        \pgfpagesuselayout{#1}[a4paper,border shrink=5mm]
+
+        \pgfpageslogicalpageoptions{1}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{2}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{3}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{4}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{5}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{6}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{7}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{8}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{9}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{10}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{11}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{12}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{13}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{14}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{15}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+        \pgfpageslogicalpageoptions{16}{border code=\pgfsetlinewidth{0.4pt}\pgfstroke}
+  }%
+}
+
+\mode<presentation>
+
+% Juelich specific definitions
+
+\deftranslation[]{SlideName}{Slide}
+\deftranslation[to=German]{SlideName}{Folie}
+
+\deftranslation[]{HelmholtzBanner}{Member of the Helmholtz Association}
+\deftranslation[to=German]{HelmholtzBanner}{Mitglied der Helmholtz-Gemeinschaft}
+
+\usefonttheme{Juelich}
+\usecolortheme{Juelich}
+\useinnertheme{Juelich}
+\useoutertheme{Juelich}
+
+% default settings for title, part and section pages
+\fzjset{
+  title=allcaps,
+  subtitle=regular,
+  part=regular,
+  frametitle=allcaps,
+  compat mode=disabled,
+}
+
+\mode<all>
+
+% define progressbar
+\makeatletter
+
+\newif\iffzj@progressbar@countoverlays
+\newif\iffzj@progressbar@countappendix
+\newif\iffzj@progressbar@counttitlepage
+\newif\iffzj@progressbar@invertappendix
+\pgfkeys{/beamerfzj/progress bar/.cd,
+  %
+  height/.default=0.4pt,
+  height/.code={%
+    \setlength{\fzj@progressbar@height}{#1}%
+  },
+  count overlays/.is if=fzj@progressbar@countoverlays,
+  count appendix/.is if=fzj@progressbar@countappendix,
+  count titlepage/.is if=fzj@progressbar@counttitlepage,
+  invert appendix/.is if=fzj@progressbar@invertappendix,
+  show in handout/.is choice,
+  show in handout/false/.code={
+    \only<handout>{\setbeamertemplate{progressbar}[invisible]}
+  },
+  show in handout/true/.code={
+    \only<handout>{\setbeamertemplate{progressbar}[visible]}
+  },
+  show in trans/.is choice,
+  show in trans/false/.code={
+    \only<trans>{\setbeamertemplate{progressbar}[invisible]}
+  },
+  show in trans/true/.code={
+    \only<trans>{\setbeamertemplate{progressbar}[visible]}
+  },
+  show/.is choice,
+  show/true/.code={\setbeamertemplate{progressbar}[visible]},
+  show/false/.code={\setbeamertemplate{progressbar}[invisible]},
+}
+
+
+\newcommand\fzj@progressbar@end\inserttotalframenumber%
+\newcommand\fzj@progressbar@current\insertframenumber%
+\newlength{\fzj@progressbar@width}%
+\newlength{\fzj@progressbar@height}%
+\newcommand\fzj@progressbar@titlepagereduction@current{0}%
+\newcommand\fzj@progressbar@titlepagereduction@end{0}%
+\pgfkeys{/beamerfzj/progress bar/height}%
+\pgfkeys{/beamerfzj/progress bar/show in handout=false}%
+\pgfkeys{/beamerfzj/progress bar/show in trans=false}%
+\pgfkeys{/beamerfzj/progress bar/show=false}%
+\setbeamertemplate{progress bar footer}{
+  %%
+  %% CHECK OPTIONS
+  %%
+  %% Count pages (overlays) or frames?
+  \iffzj@progressbar@countoverlays%
+    \renewcommand\fzj@progressbar@end\insertdocumentendpage%
+    \renewcommand\fzj@progressbar@current\insertpagenumber%
+  \else%
+    \renewcommand\fzj@progressbar@end\inserttotalframenumber%
+    \renewcommand\fzj@progressbar@current\insertframenumber%
+  \fi%
+  %% Stop at end of appendix or before appendix?
+  \iffzj@progressbar@countappendix%
+    % Don't change anything
+  \else%
+    %% This works only if we count pages and not frames
+    \iffzj@progressbar@countoverlays%
+      \renewcommand\fzj@progressbar@end{\beamer@startpageofappendix - 1}%
+    \else%
+      % not implemented, one would need \beamer@startpageofappendix but for frame number and not page number
+    \fi%
+  \fi%
+  %% Include the title page in progress bar or not
+  %% There are so many ifs because frame count for title page is 0, bud slide count for title page is 1
+  \iffzj@progressbar@counttitlepage% -- titlepage: true
+    \iffzj@progressbar@countoverlays%  -- overlays: true
+      \renewcommand{\fzj@progressbar@titlepagereduction@current}{0}%
+      \renewcommand{\fzj@progressbar@titlepagereduction@end}{0}%
+    \else% -- overlays: false
+      \renewcommand{\fzj@progressbar@titlepagereduction@current}{1}%
+      \renewcommand{\fzj@progressbar@titlepagereduction@end}{-1}%
+    \fi% -- overlays
+  \else% -- titlepage: false
+    \iffzj@progressbar@countoverlays% -- overlays: true
+      \renewcommand{\fzj@progressbar@titlepagereduction@current}{-1}%
+      \renewcommand{\fzj@progressbar@titlepagereduction@end}{+1}%
+    \else% -- overlays: false
+      \renewcommand{\fzj@progressbar@titlepagereduction@current}{0}%
+      \renewcommand{\fzj@progressbar@titlepagereduction@end}{0}%
+    \fi% -- overlays
+  \fi% -- titlepage
+  %% Check if in appendix, numbering is different there (no titlepage)
+  \ifx\beamer@startpageofappendix\@empty%
+  \else
+    \ifthenelse{%
+      \not\(\insertpagenumber<\beamer@startpageofappendix\)
+      }{% --true
+        \renewcommand{\fzj@progressbar@titlepagereduction@current}{0}%
+        \renewcommand{\fzj@progressbar@titlepagereduction@end}{0}%
+      }{% -- false
+      }%
+  \fi
+  %% Invert appendix progress bar
+  %%% Only supported for frames
+  %%% Makes only sense if count appendix=false
+  \iffzj@progressbar@invertappendix%
+    \ifthenelse{\not\(\insertpagenumber<\beamer@startpageofappendix\)}{%
+      \pgfmathsetmacro{\fzj@progressbar@current}{1+\insertdocumentendpage-\insertpagenumber}
+      \pgfmathsetmacro{\fzj@progressbar@end}{2+\insertdocumentendpage-(\beamer@startpageofappendix)}
+    }%
+    {}%
+  \else%
+  % Nothing to do here
+  \fi%
+  %%
+  %%
+  %%
+  \nointerlineskip%
+  \pgfmathsetlength{%
+    \fzj@progressbar@width%
+  }{%
+      \paperwidth * divide(\fzj@progressbar@current + \fzj@progressbar@titlepagereduction@current,\fzj@progressbar@end - \fzj@progressbar@titlepagereduction@end)%
+  }%
+  \begin{beamercolorbox}[wd=\paperwidth]{progress bar footer}
+    \tikzset{external/export next=false}%
+    \begin{tikzpicture}
+      \fill[fg] (0,0) rectangle (\fzj@progressbar@width, \fzj@progressbar@height);
+    \end{tikzpicture}%
+  \end{beamercolorbox}
+}
+
+% make sure we have a large number of total slided before the first run to keep the frame/total frame ratio below 1
+% if your slide deck has more than 300 slides, you might increase the number below
+% after the second latex run the totalframenumber will be read correctly from the .aux file
+\def\inserttotalframenumber{300}
+
+\makeatother

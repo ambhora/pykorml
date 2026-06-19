@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://korml.github.io/schemas/lexer-tokens.strict.schema.json",
+  "title": "KORML Lexer Token Stream (Strict)",
+  "type": "array",
+  "minItems": 0,
+  "items": {
+    "$ref": "#/$defs/token"
+  },
+
+  "$defs": {
+    "position": {
+      "type": "object",
+      "required": [
+        "line",
+        "column"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+
+    "token": {
+      "type": "object",
+      "required": [
+        "token_type",
+        "value",
+        "position"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "token_type": {
+          "type": "string",
+          "enum": [
+            "WS",
+            "NEWLINE",
+            "COMMENT",
+            "EOF",
+            "INDENT",
+            "DEDENT",
+            "DOC_START",
+            "DOC_END",
+            "VERSION_DIRECTIVE",
+            "LBRACE",
+            "RBRACE",
+            "LBRACKET",
+            "RBRACKET",
+            "COLON",
+            "COMMA",
+            "DASH_ITEM",
+            "SQ_SCALAR",
+            "DQ_SCALAR",
+            "LITERAL_BLOCK_SCALAR",
+            "FOLDED_BLOCK_SCALAR",
+            "PLAIN_SCALAR"
+          ]
+        },
+        "value": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/position"
+        }
+      },
+
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "token_type": {
+                  "const": "WS"
+                },
+                "value": {
+                  "pattern": "^[\\t ]+$"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "NEWLINE"
+                },
+                "value": {
+                  "const": "\n"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "COMMENT"
+                },
+                "value": {
+                  "pattern": "^#[^\\n]*$"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "EOF"
+                },
+                "value": {
+                  "const": ""
+                }
+              }
+            },
+
+            {
+              "properties": {
+                "token_type": {
+                  "const": "INDENT"
+                },
+                "value": {
+                  "pattern": "^[\\t ]+$"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "DEDENT"
+                },
+                "value": {
+                  "pattern": "^[\\t ]+$"
+                }
+              }
+            },
+
+            {
+              "properties": {
+                "token_type": {
+                  "const": "DOC_START"
+                },
+                "value": {
+                  "pattern": "^---[\\t ]*\\n$"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "DOC_END"
+                },
+                "value": {
+                  "pattern": "^\\.\\.\\.[\\t ]*\\n$"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "VERSION_DIRECTIVE"
+                },
+                "value": {
+                  "pattern": "^%!korml[\\t ]+[0-9][0-9.]*\\n$"
+                }
+              }
+            },
+
+            {
+              "properties": {
+                "token_type": {
+                  "const": "LBRACE"
+                },
+                "value": {
+                  "const": "{"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "RBRACE"
+                },
+                "value": {
+                  "const": "}"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "LBRACKET"
+                },
+                "value": {
+                  "const": "["
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "RBRACKET"
+                },
+                "value": {
+                  "const": "]"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "COLON"
+                },
+                "value": {
+                  "const": ":"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "COMMA"
+                },
+                "value": {
+                  "const": ","
+                }
+              }
+            },
+
+            {
+              "properties": {
+                "token_type": {
+                  "const": "DASH_ITEM"
+                },
+                "value": {
+                  "pattern": "^-([\\t ]|\\n)$"
+                }
+              }
+            },
+
+            {
+              "properties": {
+                "token_type": {
+                  "const": "SQ_SCALAR"
+                },
+                "value": {
+                  "pattern": "^'[^\\n]*'$"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "DQ_SCALAR"
+                },
+                "value": {
+                  "pattern": "^\"[^\\n]*\"$"
+                }
+              }
+            },
+
+            {
+              "properties": {
+                "token_type": {
+                  "const": "LITERAL_BLOCK_SCALAR"
+                },
+                "value": {
+                  "pattern": "^\\|[\\t ]*\\n[\\s\\S]*$"
+                }
+              }
+            },
+            {
+              "properties": {
+                "token_type": {
+                  "const": "FOLDED_BLOCK_SCALAR"
+                },
+                "value": {
+                  "pattern": "^>[\\t ]*\\n[\\s\\S]*$"
+                }
+              }
+            },
+
+            {
+              "properties": {
+                "token_type": {
+                  "const": "PLAIN_SCALAR"
+                },
+                "value": {
+                  "pattern": "^[^\\n]+$"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

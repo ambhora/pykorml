@@ -1,0 +1,16 @@
+%!korml version 1.0
+---
+entity_0_0: "double value 0"
+
+entity_0_1: |
+  literal line one 1
+  literal line two 1
+entity_0_2:
+  key_2_0: ["literal line one 2000000\nliteral line two 2000000\n", "double value 2000001"]
+  key_2_1: 'single value 2001'
+entity_0_3: >
+  folded line one 3
+
+  folded line two 3
+entity_0_4: "double value 4"  # fuzz comment
+...

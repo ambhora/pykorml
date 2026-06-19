@@ -1,0 +1,14 @@
+%!korml version 1.0
+---
+entity_0_0: value_0
+
+# roundtrip comment
+entity_0_1: 'single value 1'
+entity_0_2: |
+  literal line one 2
+  literal line two 2
+entity_0_3: {key_3_0: value_3000}
+entity_0_4: |
+  literal line one 4
+  literal line two 4
+...

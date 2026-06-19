@@ -1,0 +1,15 @@
+%!korml version 1.0
+---
+entity_0_0: 'single value 0'
+entity_0_1: |
+  literal line one 1
+  literal line two 1
+entity_0_2: >
+  folded line one 2
+
+
+  folded line two 2
+entity_0_3: 'single value 3'  # fuzz comment
+entity_0_4:
+- {key_4000_0: value_4000000}  # generated comment
+...

@@ -1,0 +1,94 @@
+%!korml version 1.0
+---
+schema: korml.schema.v1
+root:
+  type: Schema
+types:
+  Schema:
+    kind: mapping
+    required:
+      - schema
+      - root
+      - types
+    fields:
+      schema:
+        type: String
+      root:
+        type: TypeReference
+      types:
+        type: TypeMap
+
+  TypeMap:
+    kind: mapping
+    values:
+      type: TypeDefinition
+
+  TypeDefinition:
+    kind: mapping
+    required:
+      - kind
+    fields:
+      kind:
+        type: TypeKind
+      scalar:
+        type: ScalarKind
+      required:
+        type: StringList
+      fields:
+        type: TypeReferenceMap
+      items:
+        type: TypeReference
+      values:
+        type: TypeReference
+      enum:
+        type: StringList
+      minimum:
+        type: Integer
+      maximum:
+        type: Integer
+
+  TypeReferenceMap:
+    kind: mapping
+    values:
+      type: TypeReference
+
+  TypeReference:
+    kind: mapping
+    required:
+      - type
+    fields:
+      type:
+        type: TypeName
+
+  StringList:
+    kind: sequence
+    items:
+      type: String
+
+  TypeKind:
+    kind: enum
+    enum:
+      - any
+      - scalar
+      - sequence
+      - mapping
+      - enum
+
+  ScalarKind:
+    kind: enum
+    enum:
+      - string
+      - integer
+      - float
+      - boolean
+
+  TypeName:
+    kind: scalar
+
+  String:
+    kind: scalar
+
+  Integer:
+    kind: scalar
+    scalar: integer
+...

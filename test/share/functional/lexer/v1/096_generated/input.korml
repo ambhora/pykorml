@@ -1,0 +1,22 @@
+%!korml version 1.0
+---
+entity_0_0: 'single value 0'
+entity_0_1: >
+  folded line one 1
+
+  folded line two 1  # lexer should preserve this
+# roundtrip comment
+entity_0_2:  # generated comment
+
+- - |
+    literal line one 2000000
+    literal line two 2000000
+- |
+  literal line one 2001
+  literal line two 2001
+# fuzz comment
+entity_0_3:
+- "double value 3000"  # lexer should preserve this
+
+entity_0_4: 'single value 4'
+...

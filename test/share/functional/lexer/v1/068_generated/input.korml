@@ -1,0 +1,28 @@
+%!korml version 1.0
+---
+entity_0_0: {key_0_0: "double value 0"}
+entity_0_1: "double value 1"
+entity_0_2:
+  key_2_0: |
+    literal line one 2000
+    literal line two 2000
+
+entity_0_3: {key_3_0: value_3000, key_3_1: "folded line one 3001\nfolded line two 3001\n", key_3_2: value_3002}
+entity_0_4:  # fuzz comment
+  key_4_0:
+  - {key_4000000_0: "folded line one 4000000000\nfolded line two 4000000000\n"}
+  - key_4000001_0: |
+      literal line one 4000001000
+      literal line two 4000001000
+    key_4000001_1: value_4000001001
+    key_4000001_2: |
+      literal line one 4000001002
+      literal line two 4000001002
+  - - value_4000002000
+    - 'single value 4000002001'
+    - >
+      folded line one 4000002002
+
+      # generated comment
+      folded line two 4000002002
+...

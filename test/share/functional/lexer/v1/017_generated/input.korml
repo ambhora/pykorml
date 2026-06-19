@@ -1,0 +1,27 @@
+%!korml version 1.0
+---
+entity_0_0:  # lexer should preserve this
+  key_0_0: 'single value 0'
+entity_0_1: 'single value 1'
+
+entity_0_2:
+  key_2_0:
+
+  - key_2000000_0: value_2000000000  # fuzz comment
+
+    key_2000000_1: "double value 2000000001"
+
+    # fuzz comment
+    key_2000000_2: 'single value 2000000002'
+  - >
+    folded line one 2000001
+
+    folded line two 2000001
+  key_2_1: >
+    folded line one 2001
+
+    folded line two 2001
+entity_0_3: {key_3_0: "folded line one 3000\nfolded line two 3000\n", key_3_1: {key_3001_0: value_3001000}}
+
+entity_0_4: "double value 4"  # roundtrip comment
+...

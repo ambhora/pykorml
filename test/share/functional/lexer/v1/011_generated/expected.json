@@ -1,0 +1,130 @@
+[
+  {
+    "span": {
+      "end": {
+        "column": 20,
+        "line": 1,
+        "offset": 19
+      },
+      "start": {
+        "column": 1,
+        "line": 1,
+        "offset": 0
+      }
+    },
+    "type": "VERSION_DIRECTIVE",
+    "value": "%!korml version 1.0"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 2,
+        "offset": 21
+      },
+      "start": {
+        "column": 20,
+        "line": 1,
+        "offset": 19
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\r\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 4,
+        "line": 2,
+        "offset": 24
+      },
+      "start": {
+        "column": 1,
+        "line": 2,
+        "offset": 21
+      }
+    },
+    "type": "DOC_START",
+    "value": "---"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 3,
+        "offset": 26
+      },
+      "start": {
+        "column": 4,
+        "line": 2,
+        "offset": 24
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\r\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 4,
+        "line": 3,
+        "offset": 29
+      },
+      "start": {
+        "column": 1,
+        "line": 3,
+        "offset": 26
+      }
+    },
+    "type": "PLAIN_SCALAR",
+    "value": "key"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 5,
+        "line": 3,
+        "offset": 30
+      },
+      "start": {
+        "column": 4,
+        "line": 3,
+        "offset": 29
+      }
+    },
+    "type": "COLON",
+    "value": ":"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 3,
+        "offset": 31
+      },
+      "start": {
+        "column": 5,
+        "line": 3,
+        "offset": 30
+      }
+    },
+    "type": "WHITESPACE",
+    "value": " "
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 6,
+        "offset": 44
+      },
+      "start": {
+        "column": 6,
+        "line": 3,
+        "offset": 31
+      }
+    },
+    "type": "FOLDED_BLOCK_SCALAR",
+    "value": ">\r\n\r\n  line\r\n"
+  }
+]

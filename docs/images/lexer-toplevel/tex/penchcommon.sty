@@ -1,0 +1,254 @@
+% --------------------------------------------------------------------------------------------------
+% SPDX-License-Identifier: CC-BY-4.0
+% Copyright (C) 2022 Jayesh Badwaik <j.badwaik@fz-juelich.de>
+% --------------------------------------------------------------------------------------------------
+\ProvidesPackage{penchcommon}
+
+%--------------------------------------------------------------------------------------------------
+% Language and Font Support
+% --------------------------------------------------------------------------------------------------
+\RequirePackage{fontspec}
+\RequirePackage{microtype}
+\PassOptionsToPackage{final}{microtype}
+\RequirePackage{unicode-math}
+
+\setmainfont[Ligatures=TeXOff,ItalicFont={Linux Libertine O Italic}]{Alegreya}
+\setsansfont{Alegreya Sans}
+%\setmathfont[math-style=upright,Scale=MatchLowercase]{Latin Modern Math}
+\setmathfont[Scale=MatchLowercase]{Latin Modern Math}
+
+\setmathfont[range={bb},Scale=MatchLowercase]{TeX Gyre Pagella Math}
+\setmathfont[range={scr,bfscr},Scale=MatchLowercase]{Tex Gyre Bonum Math}
+\setmathfont[range=\setminus,Scale=MatchLowercase]{XITS Math}
+\linespread{1.2}
+
+\RequirePackage{polyglossia}
+\setmainlanguage{english}
+\RequirePackage{csquotes}
+\RequirePackage{penchmathsym}
+\RequirePackage{penchmath}
+\RequirePackage{setspace}
+\RequirePackage{enumitem}
+
+% --------------------------------------------------------------------------------------------------
+% Licensing Information
+% --------------------------------------------------------------------------------------------------
+\RequirePackage{ccicons}
+
+% --------------------------------------------------------------------------------------------------
+% Color Support for the Document
+% --------------------------------------------------------------------------------------------------
+\RequirePackage[usenames,dvipsnames,svgnames,table]{xcolor}
+
+% --------------------------------------------------------------------------------------------------
+% Hyperref Support with Colored Links
+% --------------------------------------------------------------------------------------------------
+\RequirePackage{hyperref}
+\PassOptionsToPackage{hypertexnames=true,plainpages=false,pdfpagelabels,pagebackref}{hyperref}
+
+\RequirePackage{cleveref}
+\PassOptionsToPackage{capitalize,nameinlink}{cleveref}
+
+\providecommand{\penchurlcolor}{Sepia}
+\providecommand{\penchlinkcolor}{MidnightBlue}
+\providecommand{\penchcitecolor}{ForestGreen}
+
+\RequirePackage{hyperxmp}
+\hypersetup{
+  keeppdfinfo,colorlinks=true,
+  urlcolor=\penchurlcolor, linkcolor=\penchlinkcolor, citecolor=\penchcitecolor,
+  pdftitle={\@title}, pdfauthor={\@author}, pdfsubject={\@subject}
+}
+
+% --------------------------------------------------------------------------------------------------
+%  BibTeX Support
+% --------------------------------------------------------------------------------------------------
+\RequirePackage[
+sortcites = true,
+sorting=nyt,
+bibstyle=alphabetic,
+citestyle=alphabetic,
+backend=biber
+]{biblatex}
+
+
+% --------------------------------------------------------------------------------------------------
+% Theorem Tools
+% --------------------------------------------------------------------------------------------------
+\RequirePackage{amsthm}
+\RequirePackage{thmtools}
+\RequirePackage{bigints}
+
+\RequirePackage{mdframed}
+\PassOptionsToPackage{framemethod=TikZ}{mdframed}
+
+\definecolor{penchtheorembg}{rgb}{0.96,0.96,0.96}
+
+\@ifclassloaded{pencharticle}{
+  \declaretheoremstyle[
+  bodyfont=\normalfont,
+  headfont=\color{MidnightBlue}\normalfont\bfseries,
+  notefont=\color{MidnightBlue}\normalfont\itshape,
+  preheadhook={
+    \begin{mdframed}[
+      backgroundcolor=penchtheorembg, innertopmargin =0pt , splittopskip = \topskip,
+      skipbelow= 6pt, skipabove=6pt, topline=false, bottomline=false,
+      leftline=false,rightline=false
+      ]
+    },
+  postfoothook=\end{mdframed}
+  ]{jstyle}
+}{}
+
+\@ifclassloaded{penchbook}{
+  \declaretheoremstyle[
+  numberwithin=chapter,
+  bodyfont=\normalfont,
+  headfont=\color{MidnightBlue}\normalfont\bfseries,
+  notefont=\color{MidnightBlue}\normalfont\itshape,
+  preheadhook={
+    \begin{mdframed}[
+      backgroundcolor=penchtheorembg,innertopmargin =0pt , splittopskip = \topskip, %
+      skipbelow= 6pt, skipabove=6pt, topline=false, bottomline=false,
+      leftline=false, rightline=false
+      ]
+    },
+  postfoothook=\end{mdframed}
+  ]{jstyle}
+}{}
+
+\declaretheoremstyle[
+numbered=no, bodyfont=\normalfont, headfont=\color{MidnightBlue}\normalfont\bfseries,
+notefont=\color{MidnightBlue}\normalfont\itshape
+]{ujstyle}
+
+\declaretheorem[style=jstyle,name = Theorem]{theorem}
+\crefname{theorem}{theorem}{theorems}
+\Crefname{theorem}{Theorem}{Theorems}
+
+\declaretheorem[style=jstyle,name = Proposition]{proposition}
+\crefname{proposition}{proposition}{propositions}
+\Crefname{proposition}{Proposition}{Propositions}
+
+\declaretheorem[style=jstyle,name = Lemma]{lemma}
+\crefname{lemma}{lemma}{lemmas}
+\Crefname{lemma}{Lemma}{Lemmas}
+
+\declaretheorem[style=jstyle,name = Definition]{definition}
+\crefname{definition}{definition}{definitions}
+\Crefname{definition}{Definition}{Definitions}
+
+\declaretheorem[style=jstyle,name = Corollary]{corollary}
+\crefname{corollary}{corollary}{corollaries}
+\Crefname{corollary}{Corollary}{Corollaries}
+
+
+\declaretheorem[style=jstyle,name = Axiom]{axiom}
+\crefname{axiom}{axiom}{axioms}
+\Crefname{axiom}{Axiom}{Axioms}
+
+\declaretheorem[style=remark,name = Note]{note}
+\crefname{note}{note}{notes}
+\Crefname{note}{Note}{Notes}
+
+\declaretheorem[style=remark,name = Remark]{remark}
+\crefname{remark}{remark}{remarks}
+\Crefname{remark}{Remark}{Remarks}
+
+\declaretheorem[style=remark,name = Notation]{notation}
+\crefname{notation}{notation}{notations}
+\Crefname{notation}{Notation}{Notations}
+
+\declaretheorem[style=ujstyle,name = Theorem]{theorem*}
+\declaretheorem[style=ujstyle,name = Proposition]{proposition*}
+\declaretheorem[style=ujstyle,name = Lemma]{lemma*}
+\declaretheorem[style=ujstyle,name = Definition]{definition*}
+\declaretheorem[style=ujstyle,name = Corollary]{corollary*}
+\declaretheorem[style=ujstyle,name = Axiom]{axiom*}
+\declaretheorem[style=remark,name = Note]{note*}
+\declaretheorem[style=remark,name = Remark]{remark*}
+\declaretheorem[style=remark,name = Notation]{notation*}
+
+% --------------------------------------------------------------------------------------------------
+% Review Tools
+% --------------------------------------------------------------------------------------------------
+\RequirePackage{xargs}
+\RequirePackage[colorinlistoftodos,prependcaption,textsize=small]{todonotes}
+
+\newcommandx{\incomplete}[2][1=]
+{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=blue,#1]{#2}}
+
+\newcommandx{\rewrite}[2][1=]
+{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=blue,#1]{#2}}
+
+\newcommandx{\expand}[2][1=]{\todo[#1]{#2}}
+
+\newcommandx{\typo}[2][1=]
+{\todo[linecolor=OliveGreen,backgroundcolor=OliveGreen!25,bordercolor=OliveGreen,#1]{#2}}
+
+\newcommandx{\incorrect}[2][1=]
+{\todo[linecolor=Plum,backgroundcolor=Plum!25,bordercolor=Plum,#1]{#2}}
+
+% --------------------------------------------------------------------------------------------------
+% Floats and Environment Tools
+% --------------------------------------------------------------------------------------------------
+\RequirePackage{graphicx}
+\RequirePackage{newfloat}
+
+\RequirePackage{caption}
+\PassOptionsToPackage{labelfont={bf,sf},labelsep=space}{caption}
+
+\RequirePackage{float}
+\RequirePackage{subcaption}
+
+
+\@ifclassloaded{pencharticle}{
+  \DeclareFloatingEnvironment[fileext=frm,placement={!ht},name=Equation]{eqfloat}
+}{}
+
+\@ifclassloaded{penchbook}{
+  \DeclareFloatingEnvironment[fileext=frm,placement={!ht},name=Equation,within=chapter]{eqfloat}
+}{}
+
+\captionsetup[eqfloat]{labelfont=bf}
+
+\NewDocumentEnvironment{eqcap}{m}{\begin{eqfloat}[H]}{\caption{#1}\end{eqfloat}}
+
+\NewDocumentEnvironment{framedeqcap}{m}
+{\begin{eqfloat}[H]\begin{mdframed}[roundcorner=5pt,linewidth=1pt]}
+{\caption{#1}\end{mdframed}\end{eqfloat}}
+
+
+
+
+% --------------------------------------------------------------------------------------------------
+% Section Title Formatting
+% --------------------------------------------------------------------------------------------------
+
+\RequirePackage{relsize}
+\RequirePackage{ifthen}
+
+% Set Font Size of Section Title Text
+\addtokomafont{section}{\fontsize{2ex}{2ex}\selectfont}
+
+% Set font size of Section Number Text
+\newkomafont{sectionnumber}{\fontsize{3ex}{3ex}\selectfont\rmfamily}
+
+% Format for Section Number
+\renewcommand\sectionformat{\usekomafont{sectionnumber}{\thesection\autodot}\quad}
+
+% Format for Displaying the Section/Subsection Title
+\renewcommand\sectionlinesformat[4]{
+  \ifthenelse{
+    \equal{\detokenize{#1}}{\detokenize{section}}
+  }{
+    \makebox[1em][l]{\rule[-1ex]{\textwidth}{1pt}}
+  }{
+  }
+  \@hangfrom{\hskip #2#3}{#4}
+}
+
+
+% --------------------------------------------------------------------------------------------------
+% Part Title Formatting
+% --------------------------------------------------------------------------------------------------

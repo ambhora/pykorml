@@ -1,0 +1,18 @@
+%!korml version 1.0
+---
+
+entity_0_0: "double value 0"
+entity_0_1:  # roundtrip comment
+  key_1_0: >
+    folded line one 1000
+
+    folded line two 1000
+
+# roundtrip comment
+entity_0_2: ["double value 2000", "folded line one 2001\nfolded line two 2001\n", [[value_2002000000], ["double value 2002001000", value_2002001001, "folded line one 2002001002\nfolded line two 2002001002\n"], value_2002002]]
+entity_0_3: {key_3_0: "double value 3000", key_3_1: "folded line one 3001\nfolded line two 3001\n"}  # lexer should preserve this
+entity_0_4: >
+  folded line one 4
+
+  folded line two 4
+...

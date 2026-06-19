@@ -1,0 +1,11 @@
+%!korml version 1.0
+---
+entity_0_0: 'single value 0'
+entity_0_1:
+  key_1_0: 'single value 1000'
+  key_1_1: "double value 1001"
+entity_0_2: value_2
+
+entity_0_3: ['single value 3000']
+entity_0_4: {key_4_0: "double value 4000", key_4_1: {key_4001_0: "literal line one 4001000\nliteral line two 4001000\n", key_4001_1: {key_4001001_0: 'single value 4001001000'}}}
+...
