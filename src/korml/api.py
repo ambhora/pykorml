@@ -4,10 +4,12 @@
 
 import pathlib
 
+import korml.emitter.v0
 import korml.emitter.v1
+import korml.lexer.file
 import korml.lexer.v1
-import korml.lexer.v1.file
 import korml.model
+import korml.parser.v0
 import korml.parser.v1
 
 __all__ = ["dump", "dumps", "load", "loads"]
@@ -19,11 +21,14 @@ def loads(
     filename: str = "<string>",
     debug: bool = False,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
-    file = korml.lexer.v1.file.lex(
+    file = korml.lexer.file.lex(
         filename=filename,
         input_text=input_text,
         debug=debug,
     )
+
+    if file.version is korml.model.Version.v0:
+        return korml.parser.v0.parse(file)
 
     if file.version is korml.model.Version.v1:
         return korml.parser.v1.parse(file)
@@ -50,6 +55,9 @@ def dumps(
     *,
     version: korml.model.Version = korml.model.Version.v1,
 ) -> str:
+    if version is korml.model.Version.v0:
+        return korml.emitter.v0.emit(_make_stream(value, version=version))
+
     if version is korml.model.Version.v1:
         return korml.emitter.v1.emit(_make_stream(value, version=version))
 

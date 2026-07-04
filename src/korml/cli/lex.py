@@ -6,14 +6,14 @@
 import argparse
 import json
 
-import korml.lexer.v1.file
+import korml.lexer.file
 
 
 def run(args: argparse.Namespace) -> None:
     input_text = args.input.read()
     filename = getattr(args.input, "name", "<stdin>")
 
-    file = korml.lexer.v1.file.lex(
+    file = korml.lexer.file.lex(
         filename=filename,
         input_text=input_text,
     )

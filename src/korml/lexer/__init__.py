@@ -2,4 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # --------------------------------------------------------------------------------------------------
 
-import korml.lexer.v1
+import korml.lexer.v1 as v1
+import korml.lexer.v0 as v0
+
+__all__ = ["v0", "v1"]
