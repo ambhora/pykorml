@@ -18,6 +18,7 @@ class ErrorCode(str, enum.Enum):
     EXPECTED_SEQUENCE = "EXPECTED_SEQUENCE"
     EXPECTED_MAPPING = "EXPECTED_MAPPING"
     EXPECTED_MAPPING_COLON = "EXPECTED_MAPPING_COLON"
+    UNEXPECTED_CONTENT = "UNEXPECTED_CONTENT"
 
     def __str__(self) -> str:
         return self.value
@@ -331,6 +332,30 @@ def _make_parse_error(
     )
 
 
+def _require_trivia(
+    token_array: collections.abc.Sequence[korml.lexer.v1.Token],
+    *,
+    start: int,
+    end: int,
+    after: str,
+    source_name: str,
+) -> None:
+    """
+    Raise a ParseError if a token between start and end is not trivia.
+
+    Every token of a node must belong to one of its parts; content that does
+    not, such as ': 1' after the flow sequence in [a, b]: 1, is an error
+    rather than dropped.
+    """
+    for index in range(start, end):
+        if token_array[index].type not in _TRIVIA_TOKEN_TYPE_SET:
+            raise _make_parse_error(
+                ErrorCode.UNEXPECTED_CONTENT,
+                message=f"unexpected content after {after}",
+                source_name=source_name,
+            )
+
+
 def _find_block_sequence_item_start_array(
     token_array: collections.abc.Sequence[korml.lexer.v1.Token],
     *,
@@ -636,6 +661,14 @@ def _parse_flow_sequence(
         source_name=source_name,
     )
 
+    _require_trivia(
+        concrete_token_array,
+        start=end_index + 1,
+        end=len(concrete_token_array),
+        after="flow sequence",
+        source_name=source_name,
+    )
+
     element_array = _split_flow_item_token_arrays(
         concrete_token_array[start_index + 1 : end_index],
     )
@@ -693,6 +726,14 @@ def _parse_flow_mapping(
             version=version,
             token_array=concrete_token_array,
         ),
+    )
+
+    _require_trivia(
+        concrete_token_array,
+        start=end_index + 1,
+        end=len(concrete_token_array),
+        after="flow mapping",
+        source_name=source_name,
     )
 
     for entry_token_array in _split_flow_item_token_arrays(
@@ -848,6 +889,18 @@ def _parse_sequence(
             indent=indent,
         )
 
+        _require_trivia(
+            concrete_token_array,
+            start=value_end,
+            end=(
+                item_start_array[item_index + 1]
+                if item_index + 1 < len(item_start_array)
+                else len(concrete_token_array)
+            ),
+            after="sequence item",
+            source_name=source_name,
+        )
+
         value_array.append(
             _parse_value(
                 concrete_token_array[value_start:value_end],
@@ -910,6 +963,18 @@ def _parse_mapping(
             entry_start_array=entry_start_array,
             entry_index=entry_index,
             indent=indent,
+        )
+
+        _require_trivia(
+            concrete_token_array,
+            start=entry_end,
+            end=(
+                entry_start_array[entry_index + 1]
+                if entry_index + 1 < len(entry_start_array)
+                else len(concrete_token_array)
+            ),
+            after="mapping entry",
+            source_name=source_name,
         )
 
         colon_index = _find_mapping_colon_index(

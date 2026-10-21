@@ -64,3 +64,12 @@ def test_flow_indicators_inside_block_plain_scalars(source: str, expected: objec
 )
 def test_block_scalar_ends_at_the_indentation_of_its_parent(source: str, expected: object) -> None:
     assert _load(source) == expected
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["[a, b]: 1\n", "{a: 1} x\n", "- a\n-b\n", "a:\n  - x\n  y\n"],
+)
+def test_content_outside_every_node_is_an_error(source: str) -> None:
+    with pytest.raises(korml.ParseError, match="unexpected content"):
+        korml.loads(source)
