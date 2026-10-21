@@ -1,0 +1,37 @@
+# ------------------------------------------------------------------------------
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Jayesh Badwaik <j.badwaik@fz-juelich.de>
+# ------------------------------------------------------------------------------
+
+contract: 3
+
+# korml is a plain pyproject.toml package; cpdocs' own Python provider plays
+# the build system.
+build:
+  feature-sets: >
+    "{{python}}" -m cpdocs manifest python feature-sets
+    --source "{{source}}" --output "{{output-file}}"
+  build: >
+    "{{python}}" -m cpdocs manifest python build
+    --source "{{source}}" --feature-set "{{feature-set}}"
+    --output "{{output-file}}"
+    --package korml --package-source src/korml
+
+checks:
+  broken-references: fail
+  # 193 public names have no docstring yet; raise this to fail once they do.
+  undocumented: warn
+
+versions: [main]
+
+site:
+  copyright: Copyright © Jayesh Badwaik · Apache-2.0
+  # The kosha colours of the project documentation.
+  theme:
+    colors:
+      light:
+        accent: "#3b97c4"
+        accent-2: "#97c43b"
+      dark:
+        accent: "#4ac0f6"
+        accent-2: "#b8ec47"

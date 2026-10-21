@@ -58,6 +58,7 @@ dev = [
   "ruamel.yaml>=0.18",
 ]
 docs = [
+  "cpdocs>=0.5.1",
   "mkdocs-materialx>=10.2",
   "properdocs>=1.6.7",
 ]

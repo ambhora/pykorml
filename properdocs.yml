@@ -26,6 +26,10 @@ theme:
 
 plugins:
   - search
+  # Generates the API reference from the source and mounts it under
+  # reference/api.
+  - cpdocs:
+      mount: reference/api
 
 nav:
   - Home: index.md
@@ -38,6 +42,7 @@ nav:
       - explanation/index.md
       - Language: explanation/language/index.md
       - Compiler: explanation/compiler/index.md
+  - Python API: api.md
 
 extra_css:
   - stylesheets/extra.css
