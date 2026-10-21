@@ -73,10 +73,6 @@ extra:
 
 
 extra_javascript:
-  # Polyfill for ES6+ features to support older browsers
-  # Docs: https://polyfill.io/v3/
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
-
   # MathJax v3 core library (loads TeX input and CHTML output processors)
   # CDN: https://www.jsdelivr.com/package/npm/mathjax
   # Docs: https://docs.mathjax.org/en/latest/web/components/combined.html
