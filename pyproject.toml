@@ -52,7 +52,18 @@ addopts = "--cov --cov-report term-missing --cov-fail-under=90 --cov-config=.cov
 dev = [
   "pytest>=8",
   "pytest-cov>=6",
+  "ruff>=0.15",
   # The test generators write YAML with ruamel.yaml; korml itself does not
   # use it.
   "ruamel.yaml>=0.18",
 ]
+
+# ------------------------------------------------------------------------------
+# Ruff configuration
+# ------------------------------------------------------------------------------
+# The 100 columns of the former Black configuration.
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
