@@ -100,3 +100,33 @@ def test_load_does_not_read_unbounded_files(tmp_path: pathlib.Path) -> None:
     with pytest.raises(korml.error.CompilerError) as exc:
         korml.load(path, max_input_bytes=100)
     assert exc.value.code() == "INPUT_TOO_LARGE"
+
+
+def test_dump_supports_symlinked_parent_directory(tmp_path: pathlib.Path) -> None:
+    real_directory = tmp_path / "real"
+    real_directory.mkdir()
+    symlinked_directory = tmp_path / "link"
+    symlinked_directory.symlink_to(real_directory, target_is_directory=True)
+
+    korml.dump({"a": "b"}, symlinked_directory / "output.korml")
+
+    assert korml.load(real_directory / "output.korml").to_builtin() == [{"a": "b"}]
+
+
+def test_dump_failed_replace_keeps_old_file_and_cleans_temp(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import korml._atomic
+
+    destination = tmp_path / "output.korml"
+    destination.write_text("unchanged", encoding="utf-8")
+
+    def fail_replace(*args: object, **kwargs: object) -> None:
+        raise OSError("simulated rename failure")
+
+    monkeypatch.setattr(korml._atomic.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated rename failure"):
+        korml.dump({"a": "b"}, destination)
+
+    assert destination.read_text(encoding="utf-8") == "unchanged"
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["output.korml"]

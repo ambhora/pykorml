@@ -2,25 +2,71 @@
 # SPDX-License-Identifier: Apache-2.0
 # ------------------------------------------------------------------------------
 
-"""Atomically replace a file without following a final-component output symlink."""
+"""Atomic output replacement, without following final-component symlinks."""
 
 import os
 import pathlib
+import secrets
 import stat
 import tempfile
 
 
 def write_bytes(path: str | pathlib.Path, data: bytes) -> None:
-    """Write complete bytes before replacing *path*.
+    """Write a complete new file and atomically replace *path*.
 
-    The temporary file is created in the destination directory so replacement
-    is atomic on a single filesystem. An existing final-component symlink is
-    replaced, never opened. The directory must be trusted against concurrent
-    renames or symlink swaps by other users.
+    On POSIX, directory-relative operations pin the parent directory during
+    the write and rename. A symlinked parent directory is supported, but a
+    final-component output symlink is replaced rather than followed. On other
+    platforms, atomic replace is used without directory-relative operations.
     """
     destination = pathlib.Path(path)
-    parent = destination.parent
-    fd, temporary = tempfile.mkstemp(prefix=f".{destination.name}.", suffix=".tmp", dir=parent)
+    if os.name == "posix":
+        _write_posix(destination, data)
+    else:
+        _write_portable(destination, data)
+
+
+def _write_posix(destination: pathlib.Path, data: bytes) -> None:
+    parent_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
+    temporary_name = f".{destination.name}.{secrets.token_hex(12)}.tmp"
+    try:
+        fd = os.open(
+            temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600, dir_fd=parent_fd
+        )
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                try:
+                    previous = os.stat(
+                        destination.name, dir_fd=parent_fd, follow_symlinks=False
+                    )
+                except FileNotFoundError:
+                    previous = None
+                if previous is not None and stat.S_ISREG(previous.st_mode):
+                    os.fchmod(stream.fileno(), stat.S_IMODE(previous.st_mode))
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(
+                temporary_name,
+                destination.name,
+                src_dir_fd=parent_fd,
+                dst_dir_fd=parent_fd,
+            )
+            os.fsync(parent_fd)
+        finally:
+            try:
+                os.unlink(temporary_name, dir_fd=parent_fd)
+            except FileNotFoundError:
+                pass
+    finally:
+        os.close(parent_fd)
+
+
+def _write_portable(destination: pathlib.Path, data: bytes) -> None:
+    # Non-POSIX fallback: secure temporary creation and atomic replacement.
+    fd, temporary = tempfile.mkstemp(
+        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+    )
     try:
         with os.fdopen(fd, "wb") as stream:
             try:
@@ -28,19 +74,11 @@ def write_bytes(path: str | pathlib.Path, data: bytes) -> None:
             except FileNotFoundError:
                 previous = None
             if previous is not None and stat.S_ISREG(previous.st_mode) and hasattr(os, "fchmod"):
-                # Preserve existing file permissions, including private configs.
                 os.fchmod(stream.fileno(), stat.S_IMODE(previous.st_mode))
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, destination)
-        if os.name == "posix":
-            # Persist the directory rename, not just the temporary file data.
-            directory_fd = os.open(parent, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)

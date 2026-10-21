@@ -113,3 +113,30 @@ position without the source line.
 ```bash
 korml lex --input app.korml --output-format text
 ```
+
+## Processing untrusted input
+
+`load` and `loads` enforce default limits of 8 MiB of UTF-8 input, 100,000
+lexer tokens, 128 levels of nesting, and one million cumulative parse-token
+visits. Inputs exceeding these limits raise a `KormlError` with a diagnostic
+code. The CLI `lex` command applies the byte and token limits as well.
+
+For a trusted application that intentionally processes larger documents,
+adjust the byte, token and work limits independently:
+
+```python
+stream = korml.load(
+    "large.korml",
+    max_input_bytes=32 * 1024 * 1024,
+    max_tokens=250_000,
+    max_parse_work=5_000_000,
+)
+```
+
+Passing `None` disables a particular limit; the fixed nesting guard remains
+in place. Do not disable limits for documents supplied by untrusted users.
+
+Both `korml.dump` and the CLI's file output atomically replace their target
+once rendering succeeds. Output symlinks are replaced, not followed. Files
+in symlinked directories are supported. An existing regular file's mode is
+preserved on POSIX systems; creating a new file uses restricted permissions.
