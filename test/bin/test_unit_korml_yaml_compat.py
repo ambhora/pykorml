@@ -1,0 +1,32 @@
+# ------------------------------------------------------------------------------
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Jayesh Badwaik <j.badwaik@fz-juelich.de>
+# ------------------------------------------------------------------------------
+
+"""Sources that must mean the same in korml v0 as in YAML, or be rejected."""
+
+import pytest
+
+import korml
+
+
+def _load(source: str) -> object:
+    return korml.loads(source).to_builtin()[0]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("url: http://example.org:8080/a\n", {"url": "http://example.org:8080/a"}),
+        ("time: 12:30\n", {"time": "12:30"}),
+        ("win: C:\\path\n", {"win": "C:\\path"}),
+        ("ipv6: ::1\n", {"ipv6": "::1"}),
+        ("a: x:y\n", {"a": "x:y"}),
+        ("link: http://x.org/page#top\n", {"link": "http://x.org/page#top"}),
+        ("key: value#x # comment\n", {"key": "value#x"}),
+        ('{"a":1}\n', {"a": "1"}),
+        ("{a: http://x:80}\n", {"a": "http://x:80"}),
+    ],
+)
+def test_colon_and_hash_inside_plain_scalars(source: str, expected: object) -> None:
+    assert _load(source) == expected

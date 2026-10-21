@@ -777,7 +777,7 @@ def _lex_value_start_token(
         case ">":
             return _lex_folded_block_scalar(input_text, lexer_state)
 
-        case ":":
+        case ":" if _is_mapping_colon(input_text, position.offset, lexer_state):
             return _lex_colon(input_text, lexer_state)
 
         case "-":
@@ -999,7 +999,7 @@ def _lex_flow_value_start_token(
         case "}":
             return _lex_flow_mapping_end(input_text, lexer_state)
 
-        case ":":
+        case ":" if _is_mapping_colon(input_text, position.offset, lexer_state):
             return _lex_colon(input_text, lexer_state)
 
         case "|":
@@ -1161,6 +1161,25 @@ def _lex_colon(
     return token, new_state
 
 
+def _is_mapping_colon(input_text: str, offset: int, lexer_state: LexerState) -> bool:
+    """
+    Return whether the ':' at offset separates a key from its value.
+
+    As in YAML, a colon is a mapping indicator only when whitespace, a line
+    break or the end of the input follows it, or, inside a flow collection, a
+    flow indicator. After a quoted scalar or the end of a flow collection,
+    which cannot continue a plain scalar, any colon is an indicator, so
+    JSON-style {"a":1} keeps working. Any other colon belongs to a plain
+    scalar, as in http://example.org:8080 or 12:30.
+    """
+    following = offset + 1
+    if following >= len(input_text) or input_text[following] in " \t\r\n":
+        return True
+    if lexer_state.flow_nesting_level > 0 and input_text[following] in ",[]{}":
+        return True
+    return offset > 0 and input_text[offset - 1] in "\"']}"
+
+
 def _mode_after_value(lexer_state: LexerState) -> LexerMode:
     if lexer_state.flow_nesting_level > 0:
         return LexerMode.FLOW_VALUE_START
@@ -1182,13 +1201,14 @@ def _lex_plain_scalar(
         if char in "\r\n":
             break
 
-        if char == "#":
+        # A comment needs whitespace before it; value#x is one scalar.
+        if char == "#" and input_text[offset - 1] in " \t":
             break
 
         if char in "[]{},":
             break
 
-        if char == ":":
+        if char == ":" and _is_mapping_colon(input_text, offset, lexer_state):
             break
 
         offset += 1
