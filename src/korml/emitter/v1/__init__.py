@@ -193,6 +193,19 @@ def _literal_block_content_lines(
     return [prefix + line for line in content.split("\n")]
 
 
+def _escape_code_point(char: str) -> str:
+    """Escape a character that is not printable, as \\xXX, \\uXXXX or \\UXXXXXXXX."""
+    code_point = ord(char)
+
+    if code_point < 0x100:
+        return f"\\x{code_point:02x}"
+
+    if code_point < 0x10000:
+        return f"\\u{code_point:04x}"
+
+    return f"\\U{code_point:08x}"
+
+
 def _format_double_quoted_scalar(value: str) -> str:
     output = ['"']
 
@@ -218,6 +231,10 @@ def _format_double_quoted_scalar(value: str) -> str:
                 output.append("\\f")
             case "\r":
                 output.append("\\r")
+            case _ if 0xD800 <= ord(char) <= 0xDFFF:
+                raise ValueError("cannot emit a string that contains a lone surrogate")
+            case _ if not char.isprintable():
+                output.append(_escape_code_point(char))
             case _:
                 output.append(char)
 

@@ -48,3 +48,17 @@ def test_emit_v0_rejects_v1_stream() -> None:
 
     with pytest.raises(ValueError, match="emitter v0 cannot emit"):
         korml.emitter.v0.emit(stream)
+
+
+def test_unprintable_characters_are_escaped() -> None:
+    value = {"a": "\x1b\x85\u2028\ufeff\x00x"}
+
+    text = korml.dumps(value, version=korml.Version.v0)
+
+    assert text == '"a": "\\x1b\\x85\\u2028\\ufeff\\0x"\n'
+    assert korml.loads(text).to_builtin() == [value]
+
+
+def test_lone_surrogate_cannot_be_emitted() -> None:
+    with pytest.raises(ValueError, match="lone surrogate"):
+        korml.dumps({"a": "\udcff"})
