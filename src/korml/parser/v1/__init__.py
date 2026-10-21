@@ -19,6 +19,7 @@ class ErrorCode(str, enum.Enum):
     EXPECTED_MAPPING = "EXPECTED_MAPPING"
     EXPECTED_MAPPING_COLON = "EXPECTED_MAPPING_COLON"
     UNEXPECTED_CONTENT = "UNEXPECTED_CONTENT"
+    DUPLICATE_KEY = "DUPLICATE_KEY"
 
     def __str__(self) -> str:
         return self.value
@@ -354,6 +355,29 @@ def _require_trivia(
                 message=f"unexpected content after {after}",
                 source_name=source_name,
             )
+
+
+def _add_unique_item(
+    mapping: korml.model.Mapping[korml.lexer.v1.Token],
+    key: str,
+    value: korml.model.Value[korml.lexer.v1.Token],
+    *,
+    source_name: str,
+) -> None:
+    """
+    Add an entry to a parsed mapping, raising a ParseError for a repeated key.
+
+    YAML requires unique keys. Keeping the last value silently would let two
+    readers of the same file see different values for the same key.
+    """
+    if key in mapping:
+        raise _make_parse_error(
+            ErrorCode.DUPLICATE_KEY,
+            message=f"duplicate mapping key {key!r}",
+            source_name=source_name,
+        )
+
+    mapping.add_item(key, value)
 
 
 def _find_block_sequence_item_start_array(
@@ -763,7 +787,7 @@ def _parse_flow_mapping(
             source_name=source_name,
         )
 
-        mapping.add_item(key, value)
+        _add_unique_item(mapping, key, value, source_name=source_name)
 
     return mapping
 
@@ -996,6 +1020,6 @@ def _parse_mapping(
             source_name=source_name,
         )
 
-        mapping.add_item(key, value)
+        _add_unique_item(mapping, key, value, source_name=source_name)
 
     return mapping

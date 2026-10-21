@@ -98,3 +98,9 @@ def test_excluded_yaml_features_are_errors(source: str, message: str) -> None:
 )
 def test_indicators_inside_plain_scalars_are_text(source: str, expected: object) -> None:
     assert _load(source) == expected
+
+
+@pytest.mark.parametrize("source", ["a: 1\na: 2\n", "{a: 1, a: 2}\n", "x:\n  b: 1\n  b: 2\n"])
+def test_duplicate_keys_are_errors(source: str) -> None:
+    with pytest.raises(korml.ParseError, match="duplicate mapping key 'a'|'b'"):
+        korml.loads(source)
