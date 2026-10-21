@@ -588,6 +588,11 @@ def _lex_single_quoted_scalar(
                 source_line=_read_until_newline(input_text, lexer_state),
             )
 
+        # A doubled quote is an escaped quote inside the scalar.
+        if input_text.startswith("''", offset):
+            offset += 2
+            continue
+
         if char == "'":
             offset += 1
             value = input_text[position.offset : offset]

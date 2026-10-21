@@ -143,3 +143,11 @@ def test_double_quoted_escapes(source: str, expected: object) -> None:
 def test_invalid_double_quoted_escapes_are_errors(source: str) -> None:
     with pytest.raises(korml.ParseError, match="escape"):
         korml.loads(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [("a: 'it''s'\n", {"a": "it's"}), ("a: ''''\n", {"a": "'"}), ("['a''b', c]\n", ["a'b", "c"])],
+)
+def test_doubled_single_quote_is_an_escaped_quote(source: str, expected: object) -> None:
+    assert _load(source) == expected
