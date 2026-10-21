@@ -30,3 +30,21 @@ def _load(source: str) -> object:
 )
 def test_colon_and_hash_inside_plain_scalars(source: str, expected: object) -> None:
     assert _load(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("a: hello, world\n", {"a": "hello, world"}),
+        ("a: x[1]\n", {"a": "x[1]"}),
+        ("a: {b}x\n", None),
+        ("- a, b\n", ["a, b"]),
+        ("[a, b]\n", ["a", "b"]),
+    ],
+)
+def test_flow_indicators_inside_block_plain_scalars(source: str, expected: object) -> None:
+    if expected is None:
+        with pytest.raises(korml.KormlError):
+            _load(source)
+        return
+    assert _load(source) == expected

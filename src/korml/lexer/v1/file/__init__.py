@@ -1205,7 +1205,9 @@ def _lex_plain_scalar(
         if char == "#" and input_text[offset - 1] in " \t":
             break
 
-        if char in "[]{},":
+        # Flow indicators end a plain scalar only inside a flow collection; in
+        # block context, a: hello, world and a: x[1] are plain scalars.
+        if char in "[]{}," and lexer_state.flow_nesting_level > 0:
             break
 
         if char == ":" and _is_mapping_colon(input_text, offset, lexer_state):
@@ -1215,7 +1217,8 @@ def _lex_plain_scalar(
 
     value = input_text[position.offset : offset].rstrip()
 
-    if value == "":
+    # As in YAML, a flow indicator cannot start a plain scalar.
+    if value == "" or value[0] in ",[]{}":
         raise korml.error.LexError(
             message="expected plain scalar",
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
