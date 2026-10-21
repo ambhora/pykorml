@@ -10,6 +10,8 @@ import enum
 import re
 import typing
 
+import korml.error
+
 __all__ = [
     "ErrorCode",
     "ValidationError",
@@ -55,19 +57,31 @@ class ValidationError:
     message: str
 
 
-class SchemaError(ValueError):
-    """Raised when a schema specification is malformed or inconsistent."""
+class SchemaError(korml.error.KormlError, ValueError):
+    """Raised when a schema specification is malformed or inconsistent.
 
-    pass
+    A KormlError, so one except clause catches every korml failure, and a
+    ValueError as before.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message=message, code=ErrorCode.INVALID_SCHEMA.value)
 
 
-class ConstructionError(ValueError):
-    """Raised when validation or user construction fails during schema construction."""
+class ConstructionError(korml.error.KormlError, ValueError):
+    """Raised when validation or user construction fails during schema construction.
+
+    A KormlError, so one except clause catches every korml failure, and a
+    ValueError as before.
+    """
 
     def __init__(self, error_array: collections.abc.Sequence[ValidationError]) -> None:
         """Store validation errors and format them as exception text."""
         self.error_array = tuple(error_array)
-        super().__init__("\n".join(error.message for error in self.error_array))
+        super().__init__(
+            message="\n".join(error.message for error in self.error_array),
+            code=ErrorCode.CONSTRUCTION_FAILED.value,
+        )
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

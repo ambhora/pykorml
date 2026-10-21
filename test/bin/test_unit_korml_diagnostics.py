@@ -35,3 +35,12 @@ def test_lexer_debug_output_goes_to_standard_error(capsys: pytest.CaptureFixture
 
     assert captured.out == ""
     assert "[lexer-debug]" in captured.err
+
+
+def test_schema_errors_are_korml_errors() -> None:
+    with pytest.raises(korml.KormlError) as exc_info:
+        korml.schema.compile_schema({"schema": "other"})
+
+    assert isinstance(exc_info.value, korml.schema.SchemaError)
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.code() == "INVALID_SCHEMA"
