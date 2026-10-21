@@ -44,3 +44,11 @@ def test_schema_errors_are_korml_errors() -> None:
     assert isinstance(exc_info.value, korml.schema.SchemaError)
     assert isinstance(exc_info.value, ValueError)
     assert exc_info.value.code() == "INVALID_SCHEMA"
+
+
+def test_bare_carriage_return_starts_a_new_line() -> None:
+    with pytest.raises(korml.LexError) as exc_info:
+        korml.loads('a: 1\rb: "x\n')
+
+    assert exc_info.value.span().start.line == 2
+    assert exc_info.value.span().start.column == 4

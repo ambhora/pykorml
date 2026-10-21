@@ -180,13 +180,16 @@ def advance_position(position: Position, value: str) -> Position:
     column = position.column
     offset = position.offset
 
-    for char in value:
+    # A line break is a line feed, a carriage return and line feed pair, or a
+    # bare carriage return, as for the lexer, so every token on a line after a
+    # bare carriage return gets its own line number.
+    for index, char in enumerate(value):
         offset += 1
 
-        if char == "\n":
+        if char == "\n" or (char == "\r" and value[index + 1 : index + 2] != "\n"):
             line += 1
             column = 1
-        else:
+        elif char != "\r":
             column += 1
 
     return Position(

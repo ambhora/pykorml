@@ -149,20 +149,7 @@ def _advance_position(
         grapheme clusters may render with different visual widths, but they
         still advance the column by one codepoint here.
     """
-    line = position.line
-    column = position.column
-    offset = position.offset
-
-    for char in text:
-        offset += 1
-
-        if char == "\n":
-            line += 1
-            column = 1
-        else:
-            column += 1
-
-    return korml.core.Position(line=line, column=column, offset=offset)
+    return korml.core.advance_position(position, text)
 
 
 def _make_span(
