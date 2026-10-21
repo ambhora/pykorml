@@ -780,7 +780,7 @@ def _parse_flow_sequence(
     )
 
     element_array = _split_flow_item_token_arrays(
-        concrete_token_array[start_index + 1 : end_index],
+        concrete_token_array[start_index + 1 : end_index], source_name=source_name,
     )
 
     value_array = [
@@ -791,7 +791,6 @@ def _parse_flow_sequence(
             depth=depth + 1,
         )
         for element_token_array in element_array
-        if _first_non_trivia(element_token_array) is not None
     ]
 
     return korml.model.Sequence[korml.lexer.v1.Token](
@@ -850,11 +849,8 @@ def _parse_flow_mapping(
     )
 
     for entry_token_array in _split_flow_item_token_arrays(
-        concrete_token_array[start_index + 1 : end_index],
+        concrete_token_array[start_index + 1 : end_index], source_name=source_name,
     ):
-        if _first_non_trivia(entry_token_array) is None:
-            continue
-
         colon_index = _find_top_level_flow_colon_index(entry_token_array)
 
         if colon_index is None:
@@ -922,7 +918,14 @@ def _find_matching_flow_end(
 
 def _split_flow_item_token_arrays(
     token_array: collections.abc.Sequence[korml.lexer.v1.Token],
+    *,
+    source_name: str,
 ) -> list[tuple[korml.lexer.v1.Token, ...]]:
+    """Split flow entries, rejecting missing entries between separators.
+
+    An empty collection and a single trailing comma are legal, but leading
+    and consecutive commas must not silently disappear from the result.
+    """
     item_array: list[tuple[korml.lexer.v1.Token, ...]] = []
     start = 0
     depth = 0
@@ -943,11 +946,22 @@ def _split_flow_item_token_arrays(
             continue
 
         if token.type is korml.lexer.v1.TokenType.FLOW_SEPARATOR and depth == 0:
-            item_array.append(tuple(token_array[start:index]))
+            item = tuple(token_array[start:index])
+            if _first_non_trivia(item) is None:
+                raise _make_parse_error(
+                    ErrorCode.EXPECTED_VALUE,
+                    message="missing entry before flow separator",
+                    source_name=source_name,
+                    at=token,
+                )
+            item_array.append(item)
             start = index + 1
 
-    item_array.append(tuple(token_array[start:]))
-
+    final_item = tuple(token_array[start:])
+    if _first_non_trivia(final_item) is not None:
+        item_array.append(final_item)
+    # A missing final entry is only valid after a single trailing comma or
+    # inside an entirely empty flow collection.
     return item_array
 
 
