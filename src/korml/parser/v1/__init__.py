@@ -21,6 +21,7 @@ class ErrorCode(str, enum.Enum):
     UNEXPECTED_CONTENT = "UNEXPECTED_CONTENT"
     DUPLICATE_KEY = "DUPLICATE_KEY"
     TOO_DEEP = "TOO_DEEP"
+    INVALID_ESCAPE = "INVALID_ESCAPE"
 
     def __str__(self) -> str:
         return self.value
@@ -45,6 +46,8 @@ _TRIVIA_TOKEN_TYPE_SET = {
     korml.lexer.v1.TokenType.NEWLINE,
 }
 
+# The escapes of YAML double-quoted scalars, except the escaped line break,
+# which cannot occur in a one-line quoted scalar.
 _DOUBLE_QUOTED_ESCAPE_MAP = {
     "0": "\0",
     "a": "\a",
@@ -56,10 +59,18 @@ _DOUBLE_QUOTED_ESCAPE_MAP = {
     "f": "\f",
     "r": "\r",
     "e": "\x1b",
+    " ": " ",
     '"': '"',
-    "\\": "\\",
     "/": "/",
+    "\\": "\\",
+    "N": "\x85",
+    "_": "\xa0",
+    "L": "\u2028",
+    "P": "\u2029",
 }
+
+# The escapes followed by a fixed number of hexadecimal digits.
+_DOUBLE_QUOTED_HEX_ESCAPE_LENGTH_MAP = {"x": 2, "u": 4, "U": 8}
 
 
 def parse(
@@ -136,8 +147,17 @@ def _parse_scalar(
             token_array=concrete_token_array,
         )
 
+    try:
+        value = _parse_scalar_token_value(token)
+    except ValueError as error:
+        raise _make_parse_error(
+            ErrorCode.INVALID_ESCAPE,
+            message=str(error),
+            source_name=source_name,
+        ) from error
+
     return korml.model.Scalar[korml.lexer.v1.Token](
-        _parse_scalar_token_value(token),
+        value,
         cst=korml.model.CST(
             version=version,
             token_array=concrete_token_array,
@@ -182,6 +202,13 @@ def _parse_single_quoted_scalar_value(source: str) -> str:
 
 
 def _parse_double_quoted_scalar_value(source: str) -> str:
+    """
+    Decode a double-quoted scalar as YAML does.
+
+    An unknown escape, a malformed hexadecimal escape and an escape of a
+    surrogate code point are errors rather than text, so korml and YAML
+    never read the same source differently.
+    """
     content = source[1:-1]
     output: list[str] = []
     index = 0
@@ -194,17 +221,32 @@ def _parse_double_quoted_scalar_value(source: str) -> str:
             index += 1
             continue
 
-        index += 1
+        escaped_char = content[index + 1]
+        index += 2
 
-        if index >= len(content):
-            output.append("\\")
-            break
+        if escaped_char in _DOUBLE_QUOTED_ESCAPE_MAP:
+            output.append(_DOUBLE_QUOTED_ESCAPE_MAP[escaped_char])
+            continue
 
-        escaped_char = content[index]
-        output.append(_DOUBLE_QUOTED_ESCAPE_MAP.get(escaped_char, escaped_char))
-        index += 1
+        length = _DOUBLE_QUOTED_HEX_ESCAPE_LENGTH_MAP.get(escaped_char)
+        digits = content[index : index + length] if length is not None else ""
+
+        if length is None or len(digits) != length or not _is_hex(digits):
+            raise ValueError(f"invalid escape '\\{escaped_char}' in double-quoted scalar")
+
+        code_point = int(digits, 16)
+
+        if 0xD800 <= code_point <= 0xDFFF or code_point > 0x10FFFF:
+            raise ValueError(f"escape '\\{escaped_char}{digits}' is not a Unicode scalar value")
+
+        output.append(chr(code_point))
+        index += length
 
     return "".join(output)
+
+
+def _is_hex(text: str) -> bool:
+    return all(char in "0123456789abcdefABCDEF" for char in text)
 
 
 def _parse_literal_block_scalar_value(source: str) -> str:

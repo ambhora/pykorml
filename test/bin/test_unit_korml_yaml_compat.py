@@ -122,3 +122,24 @@ def test_deep_nesting_is_a_parse_error(source: str) -> None:
 def test_nesting_up_to_the_limit_is_accepted() -> None:
     source = "[" * 128 + "]" * 128
     assert korml.loads(source).to_builtin()
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ('a: "x\\u0041"\n', {"a": "xA"}),
+        ('a: "\\x41\\U0001F600"\n', {"a": "A\U0001f600"}),
+        ('a: "\\N\\_\\L\\P\\ "\n', {"a": "\x85\xa0\u2028\u2029 "}),
+        ('a: "\\\\\\/\\""\n', {"a": '\\/"'}),
+    ],
+)
+def test_double_quoted_escapes(source: str, expected: object) -> None:
+    assert _load(source) == expected
+
+
+@pytest.mark.parametrize(
+    "source", ['a: "\\q"\n', 'a: "\\x4"\n', 'a: "\\ud800"\n', 'a: "\\U00110000"\n']
+)
+def test_invalid_double_quoted_escapes_are_errors(source: str) -> None:
+    with pytest.raises(korml.ParseError, match="escape"):
+        korml.loads(source)
