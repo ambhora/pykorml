@@ -66,7 +66,9 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 1
     except OSError as exc:
-        print(f"error: {exc.filename}: {exc.strerror}", file=sys.stderr)
+        filename = korml.error.escape_controls(str(exc.filename))
+        reason = korml.error.escape_controls(str(exc.strerror))
+        print(f"error: {filename}: {reason}", file=sys.stderr)
         return 1
     except Exception as exc:
         return handle_uncaught_exception(exc)

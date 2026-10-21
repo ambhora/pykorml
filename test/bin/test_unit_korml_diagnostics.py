@@ -93,3 +93,33 @@ def test_bug_error_quotes_its_source_line_only_on_request() -> None:
     assert "secret: x" in error.describe(quote_source=True)
     assert "secret: x" not in error.describe(quote_source=False)
     assert "secret: x" not in error.message()
+
+
+def test_control_sequences_are_escaped_in_human_diagnostics() -> None:
+    source = '%!korml version 1.0\x1b[2J\n---\nx\n...\n'
+    with pytest.raises(korml.KormlError) as exc:
+        korml.loads(source, filename="evil\x1b[1K.korml")
+
+    text = str(exc.value)
+    assert "\x1b" not in text
+    assert r"\x1b" in text
+    assert "evil" in text
+
+
+def test_control_characters_in_source_line_keep_caret_aligned() -> None:
+    from korml.core import make_position, Span
+
+    span = Span(
+        start=make_position(line=1, column=3, offset=2),
+        end=make_position(line=1, column=4, offset=3),
+    )
+    error = korml.LexError(
+        message="invalid token",
+        source_name="input",
+        span=span,
+        source_line="a\x1bX",
+    )
+    lines = str(error).splitlines()
+    assert lines[3] == r"1 | a\x1bX"
+    assert lines[4] == "  | " + " " * 5 + "^"
+    assert error.structured()["source_line"] == "a\x1bX"

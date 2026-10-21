@@ -48,6 +48,11 @@ __all__ = [
 ]
 
 
+def escape_controls(text: str) -> str:
+    """Represent terminal controls visibly; retain unmodified structured fields."""
+    return "".join(char if char.isprintable() else ascii(char)[1:-1] for char in text)
+
+
 class KormlError(Exception):
     """
     Base class for all korml-defined exceptions.
@@ -123,10 +128,11 @@ class KormlError(Exception):
         of the source, for programs that must not print the content of what
         they read, such as configuration files holding secrets.
         """
+        message = escape_controls(self._message)
         if self._code is None:
-            return f"{self.__class__.__name__}: {self._message}"
+            return f"{self.__class__.__name__}: {message}"
 
-        return f"{self.__class__.__name__}: {self._message}\n  = code: {self._code}"
+        return f"{self.__class__.__name__}: {message}\n  = code: {escape_controls(self._code)}"
 
 
 # Backward-compatible internal alias.  The public top-level name is
@@ -186,7 +192,7 @@ class BugError(KormlError):
         text = super().describe(quote_source=quote_source)
 
         if quote_source and self.source_line is not None:
-            text += f"\n\nSource line:\n{self.source_line}"
+            text += f"\n\nSource line:\n{escape_controls(self.source_line)}"
 
         return text
 
@@ -251,12 +257,12 @@ class CompilerError(KormlError):
         Return a human-readable compiler diagnostic.
         """
         lines = [
-            f"{self.__class__.__name__}: {self._message}",
-            f"  --> {self._source_name}",
+            f"{self.__class__.__name__}: {escape_controls(self._message)}",
+            f"  --> {escape_controls(self._source_name)}",
         ]
 
         if self._code is not None:
-            lines.append(f"  = code: {self._code}")
+            lines.append(f"  = code: {escape_controls(self._code)}")
 
         return "\n".join(lines)
 
@@ -322,23 +328,26 @@ class LexError(CompilerError):
         column = self._span.start.column
 
         lines = [
-            f"{self.__class__.__name__}: {self._message}",
-            f"  --> {self._source_name}:{line}:{column}",
+            f"{self.__class__.__name__}: {escape_controls(self._message)}",
+            f"  --> {escape_controls(self._source_name)}:{line}:{column}",
         ]
 
         if quote_source and self._source_line is not None:
-            caret_width = max(1, self._span.end.column - self._span.start.column)
+            start = max(0, column - 1)
+            end = max(start + 1, self._span.end.column - 1)
+            caret_offset = len(escape_controls(self._source_line[:start]))
+            caret_width = max(1, len(escape_controls(self._source_line[start:end])))
 
             lines.extend(
                 [
                     "  |",
-                    f"{line} | {self._source_line}",
-                    f"  | {' ' * (column - 1)}{'^' * caret_width}",
+                    f"{line} | {escape_controls(self._source_line)}",
+                    f"  | {' ' * caret_offset}{'^' * caret_width}",
                 ]
             )
 
         if self._code is not None:
-            lines.append(f"  = code: {self._code}")
+            lines.append(f"  = code: {escape_controls(self._code)}")
 
         return "\n".join(lines)
 
@@ -410,11 +419,11 @@ class ParseError(CompilerError):
             location += f":{self._span.start.line}:{self._span.start.column}"
 
         lines = [
-            f"{self.__class__.__name__}: {self._message}",
-            f"  --> {location}",
+            f"{self.__class__.__name__}: {escape_controls(self._message)}",
+            f"  --> {escape_controls(location)}",
         ]
 
         if self._code is not None:
-            lines.append(f"  = code: {self._code}")
+            lines.append(f"  = code: {escape_controls(self._code)}")
 
         return "\n".join(lines)
