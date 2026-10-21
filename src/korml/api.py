@@ -7,6 +7,7 @@ import copy
 import pathlib
 import typing
 
+import korml._atomic
 import korml.emitter.v0
 import korml.emitter.v1
 import korml.error
@@ -76,10 +77,7 @@ def dump(
     *,
     version: korml.model.Version = korml.model.Version.v1,
 ) -> None:
-    pathlib.Path(filename).write_text(
-        dumps(value, version=version),
-        encoding="utf-8",
-    )
+    korml._atomic.write_bytes(filename, dumps(value, version=version).encode("utf-8"))
 
 
 def _make_stream(

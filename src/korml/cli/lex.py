@@ -8,6 +8,7 @@ import json
 import pathlib
 import sys
 
+import korml._atomic
 import korml.error
 import korml.lexer.file
 
@@ -50,4 +51,4 @@ def run(args: argparse.Namespace) -> None:
         sys.stdout.buffer.write(text.encode("utf-8"))
         sys.stdout.flush()
     else:
-        args.output.write_bytes(text.encode("utf-8"))
+        korml._atomic.write_bytes(args.output, text.encode("utf-8"))

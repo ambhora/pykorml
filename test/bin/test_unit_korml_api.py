@@ -46,3 +46,26 @@ def test_dump_writes_file_and_load_reads_file(tmp_path: pathlib.Path) -> None:
 def test_dumps_rejects_non_string_mapping_key() -> None:
     with pytest.raises(TypeError, match="mapping keys"):
         korml.dumps({1: "x"})
+
+
+def test_dump_replaces_symlink_without_overwriting_target(tmp_path: pathlib.Path) -> None:
+    victim = tmp_path / "victim.korml"
+    victim.write_text("secret", encoding="utf-8")
+    destination = tmp_path / "output.korml"
+    destination.symlink_to(victim)
+
+    korml.dump({"a": "b"}, destination)
+
+    assert victim.read_text(encoding="utf-8") == "secret"
+    assert not destination.is_symlink()
+    assert korml.load(destination).to_builtin() == [{"a": "b"}]
+
+
+def test_dump_preserves_existing_mode(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "private.korml"
+    path.write_text("old", encoding="utf-8")
+    path.chmod(0o600)
+
+    korml.dump({"a": "b"}, path)
+
+    assert path.stat().st_mode & 0o777 == 0o600

@@ -102,3 +102,41 @@ def test_lex_drops_a_byte_order_mark(
 
     assert status == 0
     assert "\ufeff" not in output.read_text(encoding="utf-8")
+
+
+def test_lex_can_atomically_replace_its_own_input(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "source.korml"
+    path.write_text("key: value\n", encoding="utf-8")
+
+    assert _run(monkeypatch, "lex", "--input", str(path), "--output", str(path)) == 0
+    assert '"value": "key"' in path.read_text(encoding="utf-8")
+
+
+def test_lex_replaces_output_symlink_not_its_target(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.korml"
+    source.write_text("key: value\n", encoding="utf-8")
+    victim = tmp_path / "victim.txt"
+    victim.write_text("untouched", encoding="utf-8")
+    output = tmp_path / "tokens.json"
+    output.symlink_to(victim)
+
+    assert _run(monkeypatch, "lex", "--input", str(source), "--output", str(output)) == 0
+    assert victim.read_text(encoding="utf-8") == "untouched"
+    assert not output.is_symlink()
+    assert '"value": "key"' in output.read_text(encoding="utf-8")
+
+
+def test_lex_failure_does_not_modify_existing_output(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.korml"
+    source.write_bytes(b"\xff")
+    output = tmp_path / "tokens.json"
+    output.write_bytes(b"original")
+
+    assert _run(monkeypatch, "lex", "--input", str(source), "--output", str(output)) == 1
+    assert output.read_bytes() == b"original"
