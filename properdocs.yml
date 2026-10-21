@@ -33,6 +33,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Getting started: getting-started.md
   - Reference:
       - reference/index.md
       - Specification:
