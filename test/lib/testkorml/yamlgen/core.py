@@ -51,11 +51,15 @@ def config_from_mapping(mapping: dict[str, typing.Any]) -> GenerationConfig:
 
 
 def validate_config(config: GenerationConfig) -> None:
-    scalar_enabled = config.plain_scalar or config.single_quoted_scalar or config.double_quoted_scalar
+    scalar_enabled = (
+        config.plain_scalar or config.single_quoted_scalar or config.double_quoted_scalar
+    )
 
     block_scalar_enabled = config.literal_block_scalar or config.folded_block_scalar
 
-    collection_enabled = config.mapping or config.sequence or config.flow_mapping or config.flow_sequence
+    collection_enabled = (
+        config.mapping or config.sequence or config.flow_mapping or config.flow_sequence
+    )
 
     leaf_enabled = scalar_enabled or block_scalar_enabled
 
@@ -188,10 +192,14 @@ def _generate_node(
             return _generate_scalar(index=index, scalar_kind="double_quoted")
 
         case "literal_block_scalar":
-            return ruamel.yaml.scalarstring.LiteralScalarString(f"literal line one {index}\nliteral line two {index}\n")
+            return ruamel.yaml.scalarstring.LiteralScalarString(
+                f"literal line one {index}\nliteral line two {index}\n"
+            )
 
         case "folded_block_scalar":
-            return ruamel.yaml.scalarstring.FoldedScalarString(f"folded line one {index}\nfolded line two {index}\n")
+            return ruamel.yaml.scalarstring.FoldedScalarString(
+                f"folded line one {index}\nfolded line two {index}\n"
+            )
 
         case "mapping":
             return _generate_mapping(

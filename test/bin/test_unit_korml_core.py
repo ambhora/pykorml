@@ -82,6 +82,3 @@ def test_span_immutability():
     span = create_mock_span(0, 5)
     with pytest.raises(dataclasses.FrozenInstanceError):
         span.start = korml.core.Position(1, 99, 99)  # type: ignore[misc]
-
-
-

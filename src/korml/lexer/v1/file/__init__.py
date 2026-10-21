@@ -429,7 +429,10 @@ def lex(filename: str, input_text: str, debug=False) -> korml.lexer.v1.File:
                 raise korml.error.BugError(
                     message="unsupported lexer mode in lex()",
                     location="korml.lexer.lex",
-                    details=(f"lex() reached a lexer mode that has no dispatch case: " f"{lexer_state.mode!r}"),
+                    details=(
+                        f"lex() reached a lexer mode that has no dispatch case: "
+                        f"{lexer_state.mode!r}"
+                    ),
                     source_name=lexer_state.source_file.filename,
                     span=_make_error_span(lexer_state.position),
                     source_line=_read_until_newline(input_text, lexer_state),
@@ -453,7 +456,9 @@ def lex(filename: str, input_text: str, debug=False) -> korml.lexer.v1.File:
             source_line=_read_until_newline(input_text, lexer_state),
         )
 
-    return korml.lexer.v1.File(token_array=token_array, version=lexer_state.version, filename=filename)
+    return korml.lexer.v1.File(
+        token_array=token_array, version=lexer_state.version, filename=filename
+    )
 
 
 def _is_token_boundary(input_text: str, offset: int) -> bool:
@@ -1277,7 +1282,6 @@ def _lex_dash_at_value_start(
         input_text,
         position.offset + 3,
     ):
-
         raise korml.error.LexError(
             message="unexpected document start marker",
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
@@ -1308,7 +1312,9 @@ def _lex_dash_at_value_start(
     return _lex_plain_scalar(input_text, lexer_state)
 
 
-def _lex_version_directive(input_text: str, lexer_state: LexerState) -> tuple[korml.lexer.v1.Token, LexerState]:
+def _lex_version_directive(
+    input_text: str, lexer_state: LexerState
+) -> tuple[korml.lexer.v1.Token, LexerState]:
     _debug_lexer(lexer_state, "lex version directive")
     position = lexer_state.position
     line_text = _read_until_newline(input_text, lexer_state)
@@ -1357,7 +1363,9 @@ def _lex_version_directive(input_text: str, lexer_state: LexerState) -> tuple[ko
     return token, new_state
 
 
-def _lex_newline(input_text: str, lexer_state: LexerState) -> tuple[korml.lexer.v1.Token, LexerState]:
+def _lex_newline(
+    input_text: str, lexer_state: LexerState
+) -> tuple[korml.lexer.v1.Token, LexerState]:
     """
     Consume a newline sequence.
 

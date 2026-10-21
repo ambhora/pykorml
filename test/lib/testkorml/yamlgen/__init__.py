@@ -207,7 +207,9 @@ def write_fail_case(
     except korml.LexError as error:
         error_code = error.code()
     else:
-        raise RuntimeError(f"expected mutated {name} source to fail lexing, but it passed\n" f"source:\n{source}")
+        raise RuntimeError(
+            f"expected mutated {name} source to fail lexing, but it passed\nsource:\n{source}"
+        )
 
     (output / "unexpected.error.json").write_text(
         json.dumps(
@@ -292,7 +294,8 @@ def _generate_unique_pass_sources(
 
     if len(source_array) < case_count:
         raise RuntimeError(
-            f"could only generate {len(source_array)} unique passing cases " f"out of requested {case_count}"
+            f"could only generate {len(source_array)} unique passing cases "
+            f"out of requested {case_count}"
         )
 
     return source_array
@@ -348,7 +351,8 @@ def _generate_unique_fail_mutations(
 
     if len(mutation_array) < failure_count:
         raise RuntimeError(
-            f"could only generate {len(mutation_array)} unique failing cases " f"out of requested {failure_count}"
+            f"could only generate {len(mutation_array)} unique failing cases "
+            f"out of requested {failure_count}"
         )
 
     return mutation_array

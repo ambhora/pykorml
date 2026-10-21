@@ -39,8 +39,7 @@ def test_generated_invalid_documents_do_not_validate() -> None:
 
             assert error_array, mutation.name
             assert any(
-                error.code == mutation.expected_code
-                and error.path == mutation.expected_path
+                error.code == mutation.expected_code and error.path == mutation.expected_path
                 for error in error_array
             ), (
                 mutation.name,

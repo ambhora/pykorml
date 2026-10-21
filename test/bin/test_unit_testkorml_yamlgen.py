@@ -14,9 +14,7 @@ import testkorml.yamlgen
 
 
 def test_generate_single_case_returns_passing_generated_case() -> None:
-    case = testkorml.yamlgen.generate_single_case(
-        testkorml.yamlgen.GenerationConfig(seed=1)
-    )
+    case = testkorml.yamlgen.generate_single_case(testkorml.yamlgen.GenerationConfig(seed=1))
 
     assert case.name == "generated"
     assert case.should_fail is False

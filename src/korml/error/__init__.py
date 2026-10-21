@@ -162,7 +162,9 @@ class BugError(KormlError):
             error_message += f"\n\nDetails:\n{details}"
 
         if source_name is not None and span is not None:
-            error_message += f"\n\nSource location: " f"{source_name}:{span.start.line}:{span.start.column}"
+            error_message += (
+                f"\n\nSource location: {source_name}:{span.start.line}:{span.start.column}"
+            )
 
         if source_line is not None:
             error_message += f"\n\nSource line:\n{source_line}"

@@ -368,7 +368,10 @@ def _find_block_sequence_item_end(
             index += 1
             continue
 
-        if _is_first_content_token_on_line(token_array, index) and token.span.start.column <= indent:
+        if (
+            _is_first_content_token_on_line(token_array, index)
+            and token.span.start.column <= indent
+        ):
             return index
 
         index += 1
@@ -395,7 +398,10 @@ def _find_block_mapping_entry_start_array(
 
         colon_index = _next_non_trivia_index(token_array, index + 1)
 
-        if colon_index is not None and token_array[colon_index].type is korml.lexer.v1.TokenType.COLON:
+        if (
+            colon_index is not None
+            and token_array[colon_index].type is korml.lexer.v1.TokenType.COLON
+        ):
             entry_start_array.append(index)
 
     return entry_start_array
@@ -502,7 +508,9 @@ def _looks_like_block_mapping(
 
     colon_index = _next_non_trivia_index(token_array, first_index + 1)
 
-    return colon_index is not None and token_array[colon_index].type is korml.lexer.v1.TokenType.COLON
+    return (
+        colon_index is not None and token_array[colon_index].type is korml.lexer.v1.TokenType.COLON
+    )
 
 
 def _first_non_trivia(
@@ -611,7 +619,8 @@ def _parse_flow_sequence(
 
     if (
         start_index is None
-        or concrete_token_array[start_index].type is not korml.lexer.v1.TokenType.FLOW_SEQUENCE_START
+        or concrete_token_array[start_index].type
+        is not korml.lexer.v1.TokenType.FLOW_SEQUENCE_START
     ):
         raise _make_parse_error(
             ErrorCode.EXPECTED_SEQUENCE,

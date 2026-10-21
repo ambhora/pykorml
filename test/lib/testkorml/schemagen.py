@@ -14,6 +14,7 @@ import korml
 @dataclasses.dataclass(frozen=True, slots=True)
 class GeneratedSchemaCase:
     """A generated schema source together with one valid document for it."""
+
     schema_source: str
     document_source: str
     schema_builtin: dict[str, typing.Any]
@@ -23,6 +24,7 @@ class GeneratedSchemaCase:
 @dataclasses.dataclass(slots=True)
 class _GenerationState:
     """Mutable random-generation state shared across recursive schema generation."""
+
     rng: random.Random
     next_type_index: int = 0
 

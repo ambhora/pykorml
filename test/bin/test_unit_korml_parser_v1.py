@@ -83,7 +83,9 @@ def test_parse_scalar_parses_double_quoted_scalar() -> None:
 
 
 def test_parse_scalar_parses_literal_block_scalar() -> None:
-    token_array = _make_token_array((korml.lexer.v1.TokenType.LITERAL_BLOCK_SCALAR, "|\n  hello\n  world\n"))
+    token_array = _make_token_array(
+        (korml.lexer.v1.TokenType.LITERAL_BLOCK_SCALAR, "|\n  hello\n  world\n")
+    )
 
     scalar = korml.parser.v1._parse_scalar(
         token_array,
@@ -95,7 +97,9 @@ def test_parse_scalar_parses_literal_block_scalar() -> None:
 
 
 def test_parse_scalar_parses_folded_block_scalar() -> None:
-    token_array = _make_token_array((korml.lexer.v1.TokenType.FOLDED_BLOCK_SCALAR, ">\n  hello\n  world\n"))
+    token_array = _make_token_array(
+        (korml.lexer.v1.TokenType.FOLDED_BLOCK_SCALAR, ">\n  hello\n  world\n")
+    )
 
     scalar = korml.parser.v1._parse_scalar(
         token_array,

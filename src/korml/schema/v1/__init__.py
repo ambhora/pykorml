@@ -29,13 +29,12 @@ _SCHEMA_VERSION = "korml.schema.v1"
 _SUPPORTED_KIND_SET = {"any", "scalar", "sequence", "mapping", "enum"}
 _SUPPORTED_SCALAR_SET = {"string", "integer", "float", "boolean"}
 _INTEGER_PATTERN = re.compile(r"[+-]?[0-9]+\Z")
-_FLOAT_PATTERN = re.compile(
-    r"[+-]?(?:([0-9]+(?:\.[0-9]*)?)|(\.[0-9]+))(?:[eE][+-]?[0-9]+)?\Z"
-)
+_FLOAT_PATTERN = re.compile(r"[+-]?(?:([0-9]+(?:\.[0-9]*)?)|(\.[0-9]+))(?:[eE][+-]?[0-9]+)?\Z")
 
 
 class ErrorCode(str, enum.Enum):
     """Stable diagnostic codes emitted by schema validation and construction."""
+
     INVALID_SCHEMA = "INVALID_SCHEMA"
     UNKNOWN_TYPE = "UNKNOWN_TYPE"
     WRONG_KIND = "WRONG_KIND"
@@ -50,6 +49,7 @@ class ErrorCode(str, enum.Enum):
 @dataclasses.dataclass(frozen=True, slots=True)
 class ValidationError:
     """A structured schema diagnostic at a builtin-value path."""
+
     code: ErrorCode
     path: tuple[str | int, ...]
     message: str
@@ -57,11 +57,13 @@ class ValidationError:
 
 class SchemaError(ValueError):
     """Raised when a schema specification is malformed or inconsistent."""
+
     pass
 
 
 class ConstructionError(ValueError):
     """Raised when validation or user construction fails during schema construction."""
+
     def __init__(self, error_array: collections.abc.Sequence[ValidationError]) -> None:
         """Store validation errors and format them as exception text."""
         self.error_array = tuple(error_array)
@@ -71,12 +73,14 @@ class ConstructionError(ValueError):
 @dataclasses.dataclass(frozen=True, slots=True)
 class TypeReference:
     """A reference to a named schema type."""
+
     name: str
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class TypeDefinition:
     """A compiled named schema type and its builtin-shape rules."""
+
     name: str
     kind: str
     scalar: str = "string"
@@ -92,6 +96,7 @@ class TypeDefinition:
 @dataclasses.dataclass(frozen=True, slots=True)
 class Schema:
     """A compiled KORML schema with a root type and named type definitions."""
+
     version: str
     root: TypeReference
     types: dict[str, TypeDefinition]
@@ -159,7 +164,8 @@ def validate(value: Builtin, schema: Schema) -> list[ValidationError]:
 def construct(
     value: Builtin,
     schema: Schema,
-    constructor_map: collections.abc.Mapping[str, collections.abc.Callable[..., object]] | None = None,
+    constructor_map: collections.abc.Mapping[str, collections.abc.Callable[..., object]]
+    | None = None,
 ) -> object:
     """Validate a builtin value and recursively build user-defined objects."""
     _check_schema_type(schema)
@@ -373,7 +379,9 @@ def _check_type_definition_consistency(type_definition: TypeDefinition) -> None:
 
     if type_definition.minimum is not None and type_definition.maximum is not None:
         if type_definition.minimum > type_definition.maximum:
-            raise SchemaError(f"types.{type_definition.name}.minimum must be less than or equal to maximum")
+            raise SchemaError(
+                f"types.{type_definition.name}.minimum must be less than or equal to maximum"
+            )
 
 
 def _validate_type(

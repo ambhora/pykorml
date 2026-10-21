@@ -115,7 +115,10 @@ def test_token_mutation_all_returns_unique_mutations() -> None:
         rng=random.Random(1),
     )
 
-    key_array = [tuple((token.type.name, token.value) for token in mutation.token_array) for mutation in mutation_array]
+    key_array = [
+        tuple((token.type.name, token.value) for token in mutation.token_array)
+        for mutation in mutation_array
+    ]
 
     assert len(key_array) == len(set(key_array))
 

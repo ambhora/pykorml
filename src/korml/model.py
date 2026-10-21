@@ -81,7 +81,8 @@ def _check_value_version(
 ) -> None:
     if child.version != parent_version:
         raise ValueError(
-            f"value version {child.version.value!r} does not match " f"parent version {parent_version.value!r}"
+            f"value version {child.version.value!r} does not match "
+            f"parent version {parent_version.value!r}"
         )
 
 
@@ -138,7 +139,8 @@ class Value(typing.Generic[ConcreteToken]):
         style: Style,
     ) -> "Value[ConcreteToken]":
         raise NotImplementedError(
-            "flow/block CST conversion must be implemented by the " "version-specific lexer/CST generator"
+            "flow/block CST conversion must be implemented by the "
+            "version-specific lexer/CST generator"
         )
 
     def to_flow(self) -> "Value[ConcreteToken]":
@@ -311,7 +313,9 @@ def _make_value_from_raw(
     version: Version,
 ) -> Value[ConcreteToken]:
     if isinstance(value, Value):
-        raise TypeError("raw assignment does not accept KORML values; " "use add_item() or append() instead")
+        raise TypeError(
+            "raw assignment does not accept KORML values; use add_item() or append() instead"
+        )
 
     if isinstance(value, str):
         return Scalar(

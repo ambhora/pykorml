@@ -58,7 +58,8 @@ def validate(
 def construct(
     value: v1.Builtin,
     schema: Schema,
-    constructor_map: collections.abc.Mapping[str, collections.abc.Callable[..., object]] | None = None,
+    constructor_map: collections.abc.Mapping[str, collections.abc.Callable[..., object]]
+    | None = None,
     *,
     version: str = "v1",
 ) -> object:

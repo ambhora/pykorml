@@ -17,6 +17,7 @@ import testkorml.schemagen
 @dataclasses.dataclass(frozen=True, slots=True)
 class MutatedDocument:
     """A mutated document plus the diagnostic it is expected to trigger."""
+
     name: str
     source: str
     expected_code: korml.schema.ErrorCode
@@ -26,6 +27,7 @@ class MutatedDocument:
 @dataclasses.dataclass(frozen=True, slots=True)
 class _MutatedBuiltin:
     """A mutated builtin value plus its expected validation diagnostic."""
+
     value: dict[str, typing.Any]
     expected_code: korml.schema.ErrorCode
     expected_path: tuple[str | int, ...]

@@ -47,8 +47,11 @@ def test_generated_v0_sources_round_trip_through_dumps() -> None:
 
 
 def _to_v0_source(source: str) -> str:
-    return "\n".join(
-        line
-        for line in source.splitlines()
-        if not line.startswith("%!korml ") and line not in {"---", "..."}
-    ) + "\n"
+    return (
+        "\n".join(
+            line
+            for line in source.splitlines()
+            if not line.startswith("%!korml ") and line not in {"---", "..."}
+        )
+        + "\n"
+    )
