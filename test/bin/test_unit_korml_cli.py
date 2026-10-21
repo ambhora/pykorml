@@ -11,6 +11,7 @@ import sys
 import pytest
 
 import korml.cli
+import korml.cli.bugreport
 import korml.cli.lex
 
 
@@ -84,3 +85,7 @@ def test_missing_input_is_a_user_error(
 
     assert _run(monkeypatch, "lex", "--input", str(missing)) == 1
     assert f"error: {missing}: No such file or directory" in capsys.readouterr().err
+
+
+def test_bug_report_names_the_issue_tracker_of_the_project_urls() -> None:
+    assert korml.cli.bugreport.issues_url() == "https://gitlab.com/ambhora/software/korml/-/issues"

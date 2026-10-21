@@ -5,6 +5,7 @@
 
 import dataclasses
 import enum
+import importlib.metadata
 import traceback
 import typing
 
@@ -45,9 +46,44 @@ class TextStyler:
         return prefix + text + AnsiCode.RESET.value
 
 
+# The issue tracker when korml runs without installed package metadata.
+_FALLBACK_ISSUES_URL = "https://github.com/seanergys/pykorml/issues"
+
+
+def issues_url() -> str:
+    """
+    Return the issue tracker named by the project URLs in pyproject.toml.
+
+    That is the Issues URL if there is one, otherwise the issues page of the
+    Source URL, so the bug report and the package metadata never disagree.
+    Without installed metadata, it is github.com/seanergys/pykorml/issues.
+    """
+    try:
+        metadata = importlib.metadata.metadata("korml")
+    except importlib.metadata.PackageNotFoundError:
+        return _FALLBACK_ISSUES_URL
+
+    url_map = {}
+    for entry in metadata.get_all("Project-URL") or []:
+        label, _, url = entry.partition(",")
+        url_map[label.strip().lower()] = url.strip().rstrip("/")
+
+    if "issues" in url_map:
+        return url_map["issues"]
+
+    source = url_map.get("source")
+    if source is None:
+        return _FALLBACK_ISSUES_URL
+
+    if "gitlab" in source:
+        return f"{source}/-/issues"
+
+    return f"{source}/issues"
+
+
 @dataclasses.dataclass(frozen=True)
 class BugReportConfig:
-    url: str = "https://github.com/korml/pykorml/issues"
+    url: str = dataclasses.field(default_factory=issues_url)
 
 
 @dataclasses.dataclass(frozen=True)
