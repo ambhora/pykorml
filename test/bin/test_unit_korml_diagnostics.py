@@ -72,3 +72,24 @@ def test_parse_error_names_its_position(source: str, line: int, column: int) -> 
     assert (span.start.line, span.start.column) == (line, column)
     assert f"--> app.korml:{line}:{column}" in str(exc_info.value)
     assert exc_info.value.structured()["span"]["start"]["line"] == line
+
+
+def test_errors_can_be_described_without_quoting_the_source() -> None:
+    with pytest.raises(korml.LexError) as exc_info:
+        korml.loads('password: "hunter2\n', filename="app.korml")
+
+    quoted = exc_info.value.describe(quote_source=True)
+    unquoted = exc_info.value.describe(quote_source=False)
+
+    assert "hunter2" in quoted
+    assert quoted == str(exc_info.value)
+    assert "hunter2" not in unquoted
+    assert "--> app.korml:1:11" in unquoted
+
+
+def test_bug_error_quotes_its_source_line_only_on_request() -> None:
+    error = korml.error.BugError(message="broken", location="here", source_line="secret: x")
+
+    assert "secret: x" in error.describe(quote_source=True)
+    assert "secret: x" not in error.describe(quote_source=False)
+    assert "secret: x" not in error.message()

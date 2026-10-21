@@ -111,7 +111,17 @@ class KormlError(Exception):
 
     def __str__(self) -> str:
         """
+        Return describe(quote_source=True).
+        """
+        return self.describe(quote_source=True)
+
+    def describe(self, *, quote_source: bool) -> str:
+        """
         Return a human-readable representation of the error.
+
+        With quote_source False, the description gives positions but no text
+        of the source, for programs that must not print the content of what
+        they read, such as configuration files holding secrets.
         """
         if self._code is None:
             return f"{self.__class__.__name__}: {self._message}"
@@ -167,10 +177,18 @@ class BugError(KormlError):
                 f"\n\nSource location: {source_name}:{span.start.line}:{span.start.column}"
             )
 
-        if source_line is not None:
-            error_message += f"\n\nSource line:\n{source_line}"
-
         super().__init__(message=error_message)
+
+    def describe(self, *, quote_source: bool) -> str:
+        """
+        Return the bug description, with the source line if quote_source.
+        """
+        text = super().describe(quote_source=quote_source)
+
+        if quote_source and self.source_line is not None:
+            text += f"\n\nSource line:\n{self.source_line}"
+
+        return text
 
 
 class CompilerError(KormlError):
@@ -228,7 +246,7 @@ class CompilerError(KormlError):
         data["source_name"] = self._source_name
         return data
 
-    def __str__(self) -> str:
+    def describe(self, *, quote_source: bool) -> str:
         """
         Return a human-readable compiler diagnostic.
         """
@@ -296,7 +314,7 @@ class LexError(CompilerError):
         data["source_line"] = self._source_line
         return data
 
-    def __str__(self) -> str:
+    def describe(self, *, quote_source: bool) -> str:
         """
         Return a human-readable lexer diagnostic.
         """
@@ -308,7 +326,7 @@ class LexError(CompilerError):
             f"  --> {self._source_name}:{line}:{column}",
         ]
 
-        if self._source_line is not None:
+        if quote_source and self._source_line is not None:
             caret_width = max(1, self._span.end.column - self._span.start.column)
 
             lines.extend(
@@ -382,7 +400,7 @@ class ParseError(CompilerError):
         data["span"] = None if self._span is None else self._span.to_dict()
         return data
 
-    def __str__(self) -> str:
+    def describe(self, *, quote_source: bool) -> str:
         """
         Return a human-readable parser diagnostic.
         """
