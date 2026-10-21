@@ -491,6 +491,71 @@ def _detect_block_scalar_indent(
     return 0
 
 
+def _block_scalar_parent_indent(input_text: str, indicator_offset: int) -> int:
+    """
+    Return the indentation of the node that owns the block scalar at offset.
+
+    That is the column, counted from 0, of the mapping key or sequence dash
+    the scalar is the value of, or -1 for a scalar at the start of a line.
+    The content of the scalar must be indented deeper.
+    """
+    line_start = indicator_offset
+    while line_start > 0 and input_text[line_start - 1] not in "\r\n":
+        line_start -= 1
+
+    prefix = input_text[line_start:indicator_offset]
+    index = len(prefix) - len(prefix.lstrip(" "))
+    parent_indent = -1
+
+    while prefix.startswith("-", index) and prefix[index + 1 : index + 2] in (" ", "\t"):
+        parent_indent = index
+        index += 1
+        while index < len(prefix) and prefix[index] in " \t":
+            index += 1
+
+    if prefix[index:].strip() != "":
+        parent_indent = index
+
+    return parent_indent
+
+
+def _block_scalar_body_end(input_text: str, offset: int, *, parent_indent: int) -> int:
+    """
+    Return the offset after the content lines of a block scalar.
+
+    The content indentation is that of the first non-blank line, which must
+    be deeper than parent_indent; otherwise the scalar is empty and that line
+    belongs to the enclosing node, as in YAML. Content continues over blank
+    lines and lines indented at least as deep.
+    """
+    block_indent = _detect_block_scalar_indent(input_text, offset)
+    if block_indent <= parent_indent:
+        return offset
+
+    while offset < len(input_text):
+        line_start = offset
+        line_end = offset
+
+        while line_end < len(input_text) and input_text[line_end] not in "\r\n":
+            line_end += 1
+
+        line_text = input_text[line_start:line_end]
+
+        if line_text.strip() != "":
+            line_indent = len(line_text) - len(line_text.lstrip(" "))
+            if line_indent < block_indent:
+                break
+
+        offset = line_end
+
+        if offset < len(input_text) and input_text.startswith("\r\n", offset):
+            offset += 2
+        elif offset < len(input_text) and input_text[offset] in "\r\n":
+            offset += 1
+
+    return offset
+
+
 def _lex_single_quoted_scalar(
     input_text: str,
     lexer_state: LexerState,
@@ -838,29 +903,11 @@ def _lex_folded_block_scalar(
     elif offset < len(input_text) and input_text[offset] in "\r\n":
         offset += 1
 
-    block_indent = _detect_block_scalar_indent(input_text, offset)
-
-    while offset < len(input_text):
-        line_start = offset
-        line_end = offset
-
-        while line_end < len(input_text) and input_text[line_end] not in "\r\n":
-            line_end += 1
-
-        line_text = input_text[line_start:line_end]
-
-        if line_text.strip() != "":
-            line_indent = len(line_text) - len(line_text.lstrip(" "))
-
-            if line_indent < block_indent:
-                break
-
-        offset = line_end
-
-        if offset < len(input_text) and input_text.startswith("\r\n", offset):
-            offset += 2
-        elif offset < len(input_text) and input_text[offset] in "\r\n":
-            offset += 1
+    offset = _block_scalar_body_end(
+        input_text,
+        offset,
+        parent_indent=_block_scalar_parent_indent(input_text, position.offset),
+    )
 
     value = input_text[position.offset : offset]
 
@@ -912,29 +959,11 @@ def _lex_literal_block_scalar(
         offset += 1
         value = input_text[position.offset : offset]
 
-    block_indent = _detect_block_scalar_indent(input_text, offset)
-
-    while offset < len(input_text):
-        line_start = offset
-        line_end = offset
-
-        while line_end < len(input_text) and input_text[line_end] not in "\r\n":
-            line_end += 1
-
-        line_text = input_text[line_start:line_end]
-
-        if line_text.strip() != "":
-            line_indent = len(line_text) - len(line_text.lstrip(" "))
-
-            if line_indent < block_indent:
-                break
-
-        offset = line_end
-
-        if offset < len(input_text) and input_text.startswith("\r\n", offset):
-            offset += 2
-        elif offset < len(input_text) and input_text[offset] in "\r\n":
-            offset += 1
+    offset = _block_scalar_body_end(
+        input_text,
+        offset,
+        parent_indent=_block_scalar_parent_indent(input_text, position.offset),
+    )
 
     value = input_text[position.offset : offset]
 

@@ -48,3 +48,19 @@ def test_flow_indicators_inside_block_plain_scalars(source: str, expected: objec
             _load(source)
         return
     assert _load(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("a: |\nb: x\n", {"a": "", "b": "x"}),
+        ("a: |\n\nb: x\n", {"a": "", "b": "x"}),
+        ("a: >\n\nb: x\n", {"a": "", "b": "x"}),
+        ("a: |\n  x\n\n  y\nb: z\n", {"a": "x\n\ny\n", "b": "z"}),
+        ("a:\n  b: |\n  c: 1\n", {"a": {"b": "", "c": "1"}}),
+        ("- key: |\n  next: 1\n", [{"key": "", "next": "1"}]),
+        ("- |\n  x\n- y\n", ["x\n", "y"]),
+    ],
+)
+def test_block_scalar_ends_at_the_indentation_of_its_parent(source: str, expected: object) -> None:
+    assert _load(source) == expected
