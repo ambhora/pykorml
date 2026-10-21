@@ -35,15 +35,7 @@ A v1 source holds one or more documents, each opened by `---` and closed by
 `...`:
 
 ```python
-source = (
-    "%!korml version 1.0\n"
-    "---\n"
-    "a: 1\n"
-    "...\n"
-    "---\n"
-    "b: [x, y]\n"
-    "...\n"
-)
+source = "%!korml version 1.0\n---\na: 1\n...\n---\nb: [x, y]\n...\n"
 assert korml.loads(source).to_builtin() == [{"a": "1"}, {"b": ["x", "y"]}]
 ```
 
