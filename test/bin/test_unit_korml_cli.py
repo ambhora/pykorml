@@ -41,3 +41,46 @@ def test_invalid_usage_exits_with_status_2(monkeypatch: pytest.MonkeyPatch) -> N
         _run(monkeypatch, "lex")
 
     assert exc_info.value.code == 2
+
+
+def test_lex_reads_and_writes_utf8(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / "a.korml"
+    source.write_bytes("name: café\n".encode())
+    output = tmp_path / "tokens.txt"
+
+    status = _run(
+        monkeypatch,
+        "lex",
+        "--input",
+        str(source),
+        "--output",
+        str(output),
+        "--output-format",
+        "text",
+    )
+
+    assert status == 0
+    assert "PLAIN_SCALAR\t'café'" in output.read_bytes().decode("utf-8")
+
+
+def test_input_that_is_not_utf8_is_a_user_error(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = tmp_path / "a.korml"
+    source.write_bytes(b"name: caf\xe9\n")
+
+    assert _run(monkeypatch, "lex", "--input", str(source)) == 1
+    assert "not valid UTF-8 at byte 9" in capsys.readouterr().err
+
+
+def test_missing_input_is_a_user_error(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    missing = tmp_path / "missing.korml"
+
+    assert _run(monkeypatch, "lex", "--input", str(missing)) == 1
+    assert f"error: {missing}: No such file or directory" in capsys.readouterr().err

@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------------------------------
 
 import argparse
+import pathlib
 import sys
 
 import korml.cli.bugreport
@@ -15,14 +16,15 @@ def first_level_lexer_parser(sp: argparse.ArgumentParser) -> None:
     sp.add_argument(
         "--input",
         required=True,
-        type=argparse.FileType("r"),
+        type=pathlib.Path,
         help="Input korml document",
     )
     sp.add_argument(
         "--output",
         required=False,
-        type=argparse.FileType("w"),
-        default=sys.stdout,
+        type=pathlib.Path,
+        default=None,
+        help="Output file; standard output if omitted",
     )
     sp.add_argument(
         "--output-format",
@@ -62,6 +64,9 @@ def main() -> int:
         return handle_uncaught_exception(exc)
     except korml.error.CompilerError as exc:
         print(str(exc), file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"error: {exc.filename}: {exc.strerror}", file=sys.stderr)
         return 1
     except Exception as exc:
         return handle_uncaught_exception(exc)
