@@ -37,29 +37,58 @@ def _run(*, directory: _pathlib.Path) -> _subprocess.CompletedProcess[str]:
 
 
 @pytest.mark.parametrize(
-    ("secrets", "sast", "status"),
+    ("secrets", "sast", "iac", "status"),
     [
-        ([], [], 0),
-        ([], [_finding(severity="Medium")], 0),
-        ([], [_finding(severity="High")], 1),
-        ([], [_finding(severity="Critical")], 1),
-        ([_finding(severity="Info")], [], 1),
+        ([], [], [], 0),
+        ([], [_finding(severity="Medium")], [], 0),
+        ([], [_finding(severity="High")], [], 1),
+        ([], [_finding(severity="Critical")], [], 1),
+        ([_finding(severity="Info")], [], [], 1),
+        ([], [], [_finding(severity="Medium")], 0),
+        ([], [], [_finding(severity="High")], 1),
+        ([], [], [_finding(severity="Critical")], 1),
     ],
 )
 def test_exit_status_follows_the_blocking_findings(
-    tmp_path: _pathlib.Path, secrets: list, sast: list, status: int
+    tmp_path: _pathlib.Path, secrets: list, sast: list, iac: list, status: int
 ) -> None:
     _report(path=tmp_path / "gl-secret-detection-report.json", findings=secrets)
     _report(path=tmp_path / "gl-sast-report.json", findings=sast)
+    _report(path=tmp_path / "gl-iac-sast-report.json", findings=iac)
 
     result = _run(directory=tmp_path)
 
     assert result.returncode == status, result.stdout
-    for finding in [*secrets, *sast]:
+    for finding in [*secrets, *sast, *iac]:
         assert f"src/example.py:7: {finding['name']}" in result.stdout
 
 
-def test_missing_reports_pass(tmp_path: _pathlib.Path) -> None:
+@pytest.mark.parametrize(
+    "missing", [
+        "gl-secret-detection-report.json",
+        "gl-sast-report.json",
+        "gl-iac-sast-report.json",
+    ]
+)
+def test_missing_required_report_fails(tmp_path: _pathlib.Path, missing: str) -> None:
+    for filename in (
+        "gl-secret-detection-report.json",
+        "gl-sast-report.json",
+        "gl-iac-sast-report.json",
+    ):
+        _report(path=tmp_path / filename, findings=[])
+    (tmp_path / missing).unlink()
+
     result = _run(directory=tmp_path)
-    assert result.returncode == 0
-    assert "not produced in this pipeline" in result.stdout
+    assert result.returncode == 1
+    assert f"{missing}: required scanner report is missing" in result.stderr
+
+
+@pytest.mark.parametrize("content", ["not json", "{}", '{"vulnerabilities": {}}'])
+def test_invalid_security_report_fails(tmp_path: _pathlib.Path, content: str) -> None:
+    _report(path=tmp_path / "gl-secret-detection-report.json", findings=[])
+    _report(path=tmp_path / "gl-iac-sast-report.json", findings=[])
+    (tmp_path / "gl-sast-report.json").write_text(content, encoding="utf-8")
+    result = _run(directory=tmp_path)
+    assert result.returncode == 1
+    assert "gl-sast-report.json:" in result.stderr

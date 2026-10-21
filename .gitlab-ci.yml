@@ -93,16 +93,39 @@ iac-sast:
 # its report is kept as a plain artifact for security-gate.
 semgrep-sast:
   allow_failure: false
+  # Run all three scanners on branches, merge requests and release tags.
+  # The gate requires every report and therefore cannot silently skip a job.
+  rules:
+    - when: on_success
   artifacts:
+    when: always
+    reports:
+      sast: gl-sast-report.json
     paths: [gl-sast-report.json]
 
 kics-iac-sast:
   allow_failure: false
+  rules:
+    - when: on_success
+  # KICS uses the same filename as Semgrep. Rename it before upload so
+  # GitLab's report and the gate's needs download cannot overwrite Semgrep's.
+  after_script:
+    - if test -f gl-sast-report.json; then mv gl-sast-report.json gl-iac-sast-report.json; fi
+  artifacts:
+    when: always
+    reports:
+      sast: gl-iac-sast-report.json
+    paths: [gl-iac-sast-report.json]
 
 secret_detection:
   stage: security
   allow_failure: false
+  rules:
+    - when: on_success
   artifacts:
+    when: always
+    reports:
+      secret_detection: gl-secret-detection-report.json
     paths: [gl-secret-detection-report.json]
 
 # Without Ultimate, findings appear only in the report artifacts and never
@@ -113,10 +136,10 @@ security-gate:
   needs:
     - job: semgrep-sast
       artifacts: true
-      optional: true
+    - job: kics-iac-sast
+      artifacts: true
     - job: secret_detection
       artifacts: true
-      optional: true
   script:
     - python3 .gitlab/scripts/security_gate.py
 

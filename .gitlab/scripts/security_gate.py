@@ -2,14 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 Jayesh Badwaik <j.badwaik@fz-juelich.de>
 # ------------------------------------------------------------------------------
-"""Fail the pipeline on findings in GitLab's security reports.
+"""Enforce blocking findings and the presence of every required scanner report.
 
-Without GitLab Ultimate, scanner findings appear only in the report artifacts
-and never fail a pipeline. This script fails on any detected secret and on
-Critical or High SAST findings, and lists every finding. A report is missing
-only when its scanner did not run in this pipeline, as in tag pipelines.
-
-Run it in the directory that holds the downloaded reports.
+GitLab security templates upload scanner findings even on editions without the
+vulnerability approval features. A missing or malformed report cannot be treated
+as a clean scan. Scanners intentionally disabled for a pipeline must be managed
+explicitly in CI configuration, not silently skipped here.
 """
 
 import json as _json
@@ -17,38 +15,58 @@ import pathlib as _pathlib
 import sys as _sys
 
 
+class ReportError(Exception):
+    """The security report is absent or malformed."""
+
+
 def describe(*, finding: dict) -> str:
     """Return one line naming the severity, location and title of a finding."""
     severity = finding.get("severity", "Unknown")
-    location = finding.get("location", {})
+    location = finding.get("location") or {}
     where = f"{location.get('file')}:{location.get('start_line')}"
     title = finding.get("name") or finding.get("message")
     return f"{severity}: {where}: {title}"
 
 
 def check(*, path: _pathlib.Path, blocking: set[str] | None) -> bool:
-    """Print the findings of one report; return whether any of them blocks.
+    """Show the findings in a valid report and return whether any is blocking."""
+    if not path.is_file():
+        raise ReportError(f"{path.name}: required scanner report is missing")
+    try:
+        report = _json.loads(path.read_text(encoding="utf-8"))
+    except (_json.JSONDecodeError, UnicodeError, OSError) as exc:
+        raise ReportError(f"{path.name}: invalid or unreadable report: {exc}") from exc
 
-    With blocking None, every finding blocks.
-    """
-    if not path.exists():
-        print(f"{path.name}: not produced in this pipeline")
-        return False
-    findings = _json.loads(path.read_text(encoding="utf-8"))["vulnerabilities"]
+    if not isinstance(report, dict) or not isinstance(report.get("vulnerabilities"), list):
+        raise ReportError(f"{path.name}: report must contain a vulnerabilities list")
+
+    findings = report["vulnerabilities"]
     print(f"{path.name}: {len(findings)} finding(s)")
     failed = False
     for finding in findings:
+        if not isinstance(finding, dict) or not isinstance(finding.get("severity"), str):
+            raise ReportError(f"{path.name}: vulnerability has no valid severity")
         print(f"  {describe(finding=finding)}")
-        if blocking is None or finding.get("severity") in blocking:
+        if blocking is None or finding["severity"] in blocking:
             failed = True
     return failed
 
 
 def main() -> int:
-    """Check every report in the working directory; return the exit status."""
-    secrets = check(path=_pathlib.Path("gl-secret-detection-report.json"), blocking=None)
-    sast = check(path=_pathlib.Path("gl-sast-report.json"), blocking={"Critical", "High"})
-    return 1 if secrets or sast else 0
+    """Check SAST, IaC SAST and secret detection; fail closed."""
+    failed = False
+    report_rules = (
+        ("gl-secret-detection-report.json", None),
+        ("gl-sast-report.json", {"Critical", "High"}),
+        ("gl-iac-sast-report.json", {"Critical", "High"}),
+    )
+    for filename, blocking in report_rules:
+        try:
+            failed = check(path=_pathlib.Path(filename), blocking=blocking) or failed
+        except ReportError as exc:
+            print(f"error: {exc}", file=_sys.stderr)
+            failed = True
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
