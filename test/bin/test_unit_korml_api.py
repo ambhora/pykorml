@@ -69,3 +69,34 @@ def test_dump_preserves_existing_mode(tmp_path: pathlib.Path) -> None:
     korml.dump({"a": "b"}, path)
 
     assert path.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("source", ["[a, [b, c]]", "a: [b, c]"])
+def test_parser_work_limit_rejects_complex_inputs(source: str) -> None:
+    with pytest.raises(korml.ParseError) as exc:
+        korml.loads(source, max_parse_work=3)
+    assert exc.value.code() == "TOO_COMPLEX"
+
+
+def test_parser_work_limit_can_be_disabled() -> None:
+    assert korml.loads("[a, [b, c]]", max_parse_work=None).to_builtin() == [["a", ["b", "c"]]]
+
+
+def test_token_count_limit_is_structured() -> None:
+    with pytest.raises(korml.error.CompilerError) as exc:
+        korml.loads("[a, b, c]", max_tokens=2)
+    assert exc.value.code() == "TOO_MANY_TOKENS"
+
+
+def test_input_byte_limit_counts_utf8_bytes() -> None:
+    with pytest.raises(korml.error.CompilerError) as exc:
+        korml.loads("é", max_input_bytes=1)
+    assert exc.value.code() == "INPUT_TOO_LARGE"
+
+
+def test_load_does_not_read_unbounded_files(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "large.korml"
+    path.write_bytes(b"a" * 200)
+    with pytest.raises(korml.error.CompilerError) as exc:
+        korml.load(path, max_input_bytes=100)
+    assert exc.value.code() == "INPUT_TOO_LARGE"

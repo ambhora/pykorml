@@ -140,3 +140,18 @@ def test_lex_failure_does_not_modify_existing_output(
 
     assert _run(monkeypatch, "lex", "--input", str(source), "--output", str(output)) == 1
     assert output.read_bytes() == b"original"
+
+
+def test_cli_rejects_large_input_without_modifying_output(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import korml._limits
+
+    monkeypatch.setattr(korml._limits, "MAX_INPUT_BYTES", 10)
+    source = tmp_path / "large.korml"
+    source.write_bytes(b"x" * 50)
+    output = tmp_path / "output.json"
+    output.write_bytes(b"unchanged")
+
+    assert _run(monkeypatch, "lex", "--input", str(source), "--output", str(output)) == 1
+    assert output.read_bytes() == b"unchanged"

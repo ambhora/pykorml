@@ -9,6 +9,7 @@ import pathlib
 import sys
 
 import korml._atomic
+import korml._limits
 import korml.error
 import korml.lexer.file
 
@@ -23,10 +24,18 @@ def run(args: argparse.Namespace) -> None:
 
     if str(input_path) == "-":
         filename = "<stdin>"
-        data = sys.stdin.buffer.read()
+        data = sys.stdin.buffer.read(korml._limits.MAX_INPUT_BYTES + 1)
     else:
         filename = str(input_path)
-        data = input_path.read_bytes()
+        with input_path.open("rb") as stream:
+            data = stream.read(korml._limits.MAX_INPUT_BYTES + 1)
+
+    if len(data) > korml._limits.MAX_INPUT_BYTES:
+        raise korml.error.CompilerError(
+            message=f"input exceeds {korml._limits.MAX_INPUT_BYTES} bytes",
+            source_name=filename,
+            code="INPUT_TOO_LARGE",
+        )
 
     try:
         # utf-8-sig drops a byte-order mark, as loading does.
@@ -41,6 +50,13 @@ def run(args: argparse.Namespace) -> None:
         filename=filename,
         input_text=input_text,
     )
+
+    if len(file.token_array) > korml._limits.MAX_TOKENS:
+        raise korml.error.CompilerError(
+            message=f"token count exceeds {korml._limits.MAX_TOKENS}",
+            source_name=filename,
+            code="TOO_MANY_TOKENS",
+        )
 
     if args.output_format == "json":
         text = json.dumps([token.to_dict() for token in file.token_array], indent=2) + "\n"

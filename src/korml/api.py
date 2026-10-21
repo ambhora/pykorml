@@ -8,6 +8,7 @@ import pathlib
 import typing
 
 import korml._atomic
+import korml._limits
 import korml.emitter.v0
 import korml.emitter.v1
 import korml.error
@@ -25,7 +26,11 @@ def loads(
     *,
     filename: str = "<string>",
     debug: bool = False,
+    max_input_bytes: int | None = korml._limits.MAX_INPUT_BYTES,
+    max_tokens: int | None = korml._limits.MAX_TOKENS,
+    max_parse_work: int | None = korml._limits.MAX_PARSE_WORK,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
+    korml._limits.check_input_size(input_text, max_input_bytes=max_input_bytes, filename=filename)
     # A byte-order mark is an artefact of the encoding, not Korml text; it is
     # dropped as YAML does, so a file saved with one reads like one without.
     file = korml.lexer.file.lex(
@@ -35,10 +40,10 @@ def loads(
     )
 
     if file.version is korml.model.Version.v0:
-        return korml.parser.v0.parse(file)
+        return korml.parser.v0.parse(file, max_tokens=max_tokens, max_work=max_parse_work)
 
     if file.version is korml.model.Version.v1:
-        return korml.parser.v1.parse(file)
+        return korml.parser.v1.parse(file, max_tokens=max_tokens, max_work=max_parse_work)
 
     raise ValueError(f"unsupported korml version: {file.version.value!r}")
 
@@ -47,13 +52,26 @@ def load(
     filename: str | pathlib.Path,
     *,
     debug: bool = False,
+    max_input_bytes: int | None = korml._limits.MAX_INPUT_BYTES,
+    max_tokens: int | None = korml._limits.MAX_TOKENS,
+    max_parse_work: int | None = korml._limits.MAX_PARSE_WORK,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
     path = pathlib.Path(filename)
-
+    with path.open("rb") as stream:
+        data = stream.read(max_input_bytes + 1 if max_input_bytes is not None else -1)
+    if max_input_bytes is not None and len(data) > max_input_bytes:
+        raise korml.error.CompilerError(
+            message=f"input exceeds {max_input_bytes} bytes",
+            source_name=str(path),
+            code="INPUT_TOO_LARGE",
+        )
     return loads(
-        path.read_text(encoding="utf-8"),
+        data.decode("utf-8"),
         filename=str(path),
         debug=debug,
+        max_input_bytes=max_input_bytes,
+        max_tokens=max_tokens,
+        max_parse_work=max_parse_work,
     )
 
 

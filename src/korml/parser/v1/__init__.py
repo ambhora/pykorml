@@ -3,6 +3,9 @@
 # ------------------------------------------------------------------------------
 
 import collections.abc
+import dataclasses
+
+import korml._limits
 import enum
 
 import korml.error
@@ -21,6 +24,7 @@ class ErrorCode(str, enum.Enum):
     UNEXPECTED_CONTENT = "UNEXPECTED_CONTENT"
     DUPLICATE_KEY = "DUPLICATE_KEY"
     TOO_DEEP = "TOO_DEEP"
+    TOO_COMPLEX = "TOO_COMPLEX"
     INVALID_ESCAPE = "INVALID_ESCAPE"
 
     def __str__(self) -> str:
@@ -73,12 +77,31 @@ _DOUBLE_QUOTED_ESCAPE_MAP = {
 _DOUBLE_QUOTED_HEX_ESCAPE_LENGTH_MAP = {"x": 2, "u": 4, "U": 8}
 
 
+@dataclasses.dataclass
+class _ParseBudget:
+    remaining: int | None
+
+
+def _check_tokens(file: korml.lexer.v1.File, max_tokens: int | None) -> None:
+    if max_tokens is not None and len(file.token_array) > max_tokens:
+        raise korml.error.CompilerError(
+            message=f"token count exceeds {max_tokens}",
+            source_name=file.filename,
+            code="TOO_MANY_TOKENS",
+        )
+
+
 def parse(
     file: korml.lexer.v1.File,
+    *,
+    max_tokens: int | None = korml._limits.MAX_TOKENS,
+    max_work: int | None = korml._limits.MAX_PARSE_WORK,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
     if file.version is not korml.model.Version.v1:
         raise ValueError(f"parser v1 cannot parse version {file.version.value!r}")
 
+    _check_tokens(file, max_tokens)
+    budget = _ParseBudget(remaining=max_work)
     document_array: list[korml.model.Value[korml.lexer.v1.Token]] = []
 
     for document_token_array in _iter_document_body_token_arrays(file.token_array):
@@ -91,6 +114,7 @@ def parse(
                 version=file.version,
                 source_name=file.filename,
                 depth=0,
+                budget=budget,
             )
         )
 
@@ -674,6 +698,7 @@ def _parse_value(
     version: korml.model.Version,
     source_name: str,
     depth: int,
+    budget: _ParseBudget | None = None,
 ) -> korml.model.Value[korml.lexer.v1.Token]:
     if depth > MAX_NESTING_DEPTH:
         raise _make_parse_error(
@@ -682,6 +707,16 @@ def _parse_value(
             source_name=source_name,
             at=_first_non_trivia(token_array),
         )
+
+    if budget is not None and budget.remaining is not None:
+        budget.remaining -= len(token_array)
+        if budget.remaining < 0:
+            raise _make_parse_error(
+                ErrorCode.TOO_COMPLEX,
+                message="document exceeds parser work budget",
+                source_name=source_name,
+                at=_first_non_trivia(token_array),
+            )
 
     concrete_token_array = tuple(token_array)
     first_token = _first_non_trivia(concrete_token_array)
@@ -700,6 +735,7 @@ def _parse_value(
             version=version,
             source_name=source_name,
             depth=depth,
+            budget=budget,
         )
 
     if first_token.type is korml.lexer.v1.TokenType.FLOW_MAPPING_START:
@@ -708,6 +744,7 @@ def _parse_value(
             version=version,
             source_name=source_name,
             depth=depth,
+            budget=budget,
         )
 
     if first_token.type is korml.lexer.v1.TokenType.DASH_ITEM:
@@ -716,6 +753,7 @@ def _parse_value(
             version=version,
             source_name=source_name,
             depth=depth,
+            budget=budget,
         )
 
     if first_token.type in _SCALAR_TOKEN_TYPE_SET:
@@ -725,6 +763,7 @@ def _parse_value(
                 version=version,
                 source_name=source_name,
                 depth=depth,
+                budget=budget,
             )
 
         return _parse_scalar(
@@ -747,6 +786,7 @@ def _parse_flow_sequence(
     version: korml.model.Version,
     source_name: str,
     depth: int,
+    budget: _ParseBudget | None = None,
 ) -> korml.model.Sequence[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     start_index = _first_non_trivia_index(concrete_token_array)
@@ -789,6 +829,7 @@ def _parse_flow_sequence(
             version=version,
             source_name=source_name,
             depth=depth + 1,
+            budget=budget,
         )
         for element_token_array in element_array
     ]
@@ -809,6 +850,7 @@ def _parse_flow_mapping(
     version: korml.model.Version,
     source_name: str,
     depth: int,
+    budget: _ParseBudget | None = None,
 ) -> korml.model.Mapping[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     start_index = _first_non_trivia_index(concrete_token_array)
@@ -872,6 +914,7 @@ def _parse_flow_mapping(
             version=version,
             source_name=source_name,
             depth=depth + 1,
+            budget=budget,
         )
 
         _add_unique_item(
@@ -997,6 +1040,7 @@ def _parse_sequence(
     version: korml.model.Version,
     source_name: str,
     depth: int,
+    budget: _ParseBudget | None = None,
 ) -> korml.model.Sequence[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     first_token = _first_non_trivia(concrete_token_array)
@@ -1045,6 +1089,7 @@ def _parse_sequence(
                 version=version,
                 source_name=source_name,
                 depth=depth + 1,
+                budget=budget,
             )
         )
 
@@ -1064,6 +1109,7 @@ def _parse_mapping(
     version: korml.model.Version,
     source_name: str,
     depth: int,
+    budget: _ParseBudget | None = None,
 ) -> korml.model.Mapping[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     first_token = _first_non_trivia(concrete_token_array)
@@ -1137,6 +1183,7 @@ def _parse_mapping(
             version=version,
             source_name=source_name,
             depth=depth + 1,
+            budget=budget,
         )
 
         _add_unique_item(
