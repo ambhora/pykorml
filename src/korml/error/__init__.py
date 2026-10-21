@@ -37,7 +37,6 @@ import typing
 
 import korml.core
 
-
 __all__ = [
     "KormlError",
     "BaseError",

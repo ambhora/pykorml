@@ -8,7 +8,6 @@ import pytest
 
 import korml
 
-
 # Minimal schema used to verify the public version-dispatching API.
 SCHEMA_SOURCE = """%!korml version 1.0
 ---

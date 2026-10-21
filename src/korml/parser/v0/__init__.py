@@ -8,9 +8,9 @@ v0 has a single implicit document, so parsing applies the v1 document-body
 parser to the whole token stream instead of splitting on document markers.
 """
 
-from korml.lexer import v0 as lexer_v0
 import korml.model
 import korml.parser.v1 as parser_v1
+from korml.lexer import v0 as lexer_v0
 
 ErrorCode = parser_v1.ErrorCode
 

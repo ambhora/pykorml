@@ -6,7 +6,7 @@ import korml.core as core
 import korml.error as error
 import korml.model as model
 import korml.schema as schema
-
+from korml.api import dump, dumps, load, loads
 from korml.error import KormlError, LexError, ParseError
 from korml.model import (
     CST,
@@ -20,7 +20,6 @@ from korml.model import (
     Value,
     Version,
 )
-from korml.api import dump, dumps, load, loads
 
 __all__ = [
     "core",

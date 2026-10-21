@@ -4,10 +4,10 @@
 
 """Version-dispatching file lexer."""
 
-from korml.lexer.v1 import File
 import korml.lexer.v0.file as lexer_v0_file
 import korml.lexer.v1.file as lexer_v1_file
 import korml.model
+from korml.lexer.v1 import File
 
 __all__ = ["detect_version", "lex", "unlex"]
 

@@ -6,11 +6,11 @@ import json
 import pathlib
 
 import pytest
+import testkorml.yamlgen
 
 import korml
 import korml.lexer.v1
 import korml.lexer.v1.file
-import testkorml.yamlgen
 
 
 def test_generate_single_case_returns_passing_generated_case() -> None:

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # ------------------------------------------------------------------------------
 
-import korml.emitter.v1 as v1
 import korml.emitter.v0 as v0
+import korml.emitter.v1 as v1
 
 __all__ = ["v0", "v1"]

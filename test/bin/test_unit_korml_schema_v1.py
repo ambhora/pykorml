@@ -8,7 +8,6 @@ import pytest
 
 import korml
 
-
 # Shared schema used by most validator and constructor tests.
 # It exercises nested mappings, sequences, dynamic mapping values, enums,
 # booleans, arbitrary-length integers, and a fixed-width integer type.

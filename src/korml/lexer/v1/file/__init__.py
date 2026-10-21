@@ -34,9 +34,9 @@ import enum
 import re
 
 import korml.core
-import korml.model
 import korml.lexer
 import korml.lexer.v1
+import korml.model
 
 __all__ = ["lex", "unlex"]
 

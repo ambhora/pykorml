@@ -3,9 +3,9 @@
 # --------------------------------------------------------------------------------------------------
 
 import ruamel.yaml
+import testkorml.yamlgen
 
 import korml
-import testkorml.yamlgen
 
 
 def test_generated_v0_sources_match_ruamel_yaml_builtin_values() -> None:

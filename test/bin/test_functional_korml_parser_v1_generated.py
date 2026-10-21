@@ -5,12 +5,12 @@
 import random
 
 import pytest
+import testkorml.yamlgen
 
 import korml
 import korml.lexer.v1
 import korml.lexer.v1.file
 import korml.parser.v1
-import testkorml.yamlgen
 
 
 def test_generated_block_token_streams_parse() -> None:

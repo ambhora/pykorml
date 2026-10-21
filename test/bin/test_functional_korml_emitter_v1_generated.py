@@ -3,9 +3,9 @@
 # ------------------------------------------------------------------------------
 
 import ruamel.yaml
+import testkorml.yamlgen
 
 import korml
-import testkorml.yamlgen
 
 
 def test_generated_sources_round_trip_through_loads_and_dumps() -> None:

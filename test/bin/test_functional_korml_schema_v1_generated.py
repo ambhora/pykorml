@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # ------------------------------------------------------------------------------
 
-import korml
 import testkorml.schemagen
 import testkorml.schemamutation
+
+import korml
 
 
 # Generated cases pair a schema with a document built from that exact schema,

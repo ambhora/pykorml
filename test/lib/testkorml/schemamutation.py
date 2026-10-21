@@ -10,7 +10,6 @@ import dataclasses
 import typing
 
 import korml
-
 import testkorml.schemagen
 
 

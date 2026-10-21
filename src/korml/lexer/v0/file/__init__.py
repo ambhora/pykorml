@@ -14,9 +14,9 @@ import re
 
 import korml.core
 import korml.error
-from korml.lexer import v0 as lexer_v0
 import korml.lexer.v1.file as v1_file
 import korml.model
+from korml.lexer import v0 as lexer_v0
 
 __all__ = ["lex", "unlex"]
 

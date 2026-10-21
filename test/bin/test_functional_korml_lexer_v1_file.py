@@ -6,7 +6,9 @@
 import json
 import pathlib
 import typing
+
 import pytest
+
 import korml.lexer.v1.file
 
 CASE_ROOT = pathlib.Path("test/share/functional/lexer/v1")

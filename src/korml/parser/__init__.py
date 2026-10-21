@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # --------------------------------------------------------------------------------------------------
 
-import korml.parser.v1 as v1
 import korml.parser.v0 as v0
+import korml.parser.v1 as v1
 
 __all__ = ["v0", "v1"]

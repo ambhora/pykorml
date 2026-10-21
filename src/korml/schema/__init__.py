@@ -5,6 +5,7 @@
 """Public version-dispatching schema API for KORML."""
 
 import collections.abc
+
 import korml.schema.v1 as v1
 
 __all__ = [

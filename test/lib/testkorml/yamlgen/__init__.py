@@ -10,7 +10,6 @@ import typing
 
 import korml.lexer.v1
 import korml.lexer.v1.file
-
 import testkorml.yamlgen.core as core
 import testkorml.yamlgen.mutation as mutation
 import testkorml.yamlgen.tokenmutation as tokenmutation
