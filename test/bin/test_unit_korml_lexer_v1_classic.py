@@ -86,10 +86,10 @@ def test_debug_output_from_public_lex(
 
     captured = capsys.readouterr()
 
-    assert "[lexer-debug]" in captured.out
-    assert "[lexer-result]" in captured.out
-    assert "start lexing" in captured.out
-    assert "token=VERSION_DIRECTIVE" in captured.out
+    assert "[lexer-debug]" in captured.err
+    assert "[lexer-result]" in captured.err
+    assert "start lexing" in captured.err
+    assert "token=VERSION_DIRECTIVE" in captured.err
 
 
 def test_debug_lexer_at_end_of_input(
@@ -108,9 +108,9 @@ def test_debug_lexer_at_end_of_input(
 
     captured = capsys.readouterr()
 
-    assert "[lexer-debug]" in captured.out
-    assert "char=None" in captured.out
-    assert "end of input" in captured.out
+    assert "[lexer-debug]" in captured.err
+    assert "char=None" in captured.err
+    assert "end of input" in captured.err
 
 
 def test_debug_lexer_result_no_output_when_debug_disabled(

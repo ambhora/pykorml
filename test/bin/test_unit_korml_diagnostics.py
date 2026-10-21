@@ -26,3 +26,12 @@ def test_bug_error_keeps_the_message_method() -> None:
 
     assert error.message().startswith("internal bug at here: broken")
     assert error.summary == "broken"
+
+
+def test_lexer_debug_output_goes_to_standard_error(capsys: pytest.CaptureFixture[str]) -> None:
+    korml.loads("a: 1\n", debug=True)
+
+    captured = capsys.readouterr()
+
+    assert captured.out == ""
+    assert "[lexer-debug]" in captured.err

@@ -32,6 +32,7 @@ Public API:
 import dataclasses
 import enum
 import re
+import sys
 
 import korml.core
 import korml.lexer
@@ -320,7 +321,8 @@ def _debug_lexer(lexer_state: LexerState, message: str) -> None:
         f"char={char!r} "
         f"- {message}\n"
         f"    {line_text}\n"
-        f"    {pointer}"
+        f"    {pointer}",
+        file=sys.stderr,
     )
 
 
@@ -1645,5 +1647,6 @@ def _debug_lexer_result(
         "[lexer-result] "
         f"token={token.type.name} "
         f"value={token.value!r} "
-        f"mode={old_state.mode.value}->{new_state.mode.value}\n"
+        f"mode={old_state.mode.value}->{new_state.mode.value}\n",
+        file=sys.stderr,
     )
