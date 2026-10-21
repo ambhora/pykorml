@@ -3,10 +3,7 @@
 # Copyright (C) 2026 Jayesh Badwaik <j.badwaik@fz-juelich.de>
 # --------------------------------------------------------------------------------------------------
 
-import collections
-import collections.abc
 import dataclasses
-import typing
 
 import pytest
 

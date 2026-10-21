@@ -5,7 +5,6 @@
 
 import json
 import pathlib
-import typing
 
 import pytest
 

@@ -9,7 +9,6 @@ v1 document-body tokenization rules, but starts directly in value mode and
 rejects stream-level constructs such as version directives and document markers.
 """
 
-import dataclasses
 import re
 
 import korml.core

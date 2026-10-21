@@ -3,7 +3,6 @@
 # ------------------------------------------------------------------------------
 
 import collections.abc
-import dataclasses
 
 import pytest
 
