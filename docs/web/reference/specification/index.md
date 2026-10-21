@@ -52,4 +52,4 @@ lines. Therefore, the grammar is specified operationally.
 
 ## Lexer Specification
 
-The lexer specification can be found at [lexer](lexer)
+The lexer specification can be found at [lexer](lexer.md)

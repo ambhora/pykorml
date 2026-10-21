@@ -20,7 +20,7 @@ naturally expressible in standard context-free formalisms.
 A practical approach is to decompose the compiler into multiple stages. An initial preprocessing
 stage resolves indentation into an explicit token stream, after which a conventional EBNF-style
 grammar can be applied. The specification follows this design, as described in
-[Specification](reference/specification.md).
+[Specification](../../reference/specification/index.md).
 
 The compiler is therefore structured as a three-stage pipeline:
 
