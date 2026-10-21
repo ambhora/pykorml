@@ -45,53 +45,14 @@ packages = ["src/korml"]
 pythonpath = ["src","test/lib"]
 addopts = "--cov --cov-report term-missing --cov-fail-under=90 --cov-config=.coveragerc"
 
-[tool.black]
-line-length = 100
-
-[tool.hatch.envs.tests]
-dependencies = [
-  "pytest>=6.3",
-  "pytest-cov",
-  "ruamel.yaml",
+# ------------------------------------------------------------------------------
+# Development dependencies, installed by uv sync
+# ------------------------------------------------------------------------------
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=6",
+  # The test generators write YAML with ruamel.yaml; korml itself does not
+  # use it.
+  "ruamel.yaml>=0.18",
 ]
-
-[tool.hatch.envs.tests.env-vars]
-PYTHONPATH = "src:test/lib"
-
-[tool.hatch.envs.tests.scripts]
-testkorml-generate = "python -m testkorml.cli.generator {args}"
-
-
-[tool.hatch.envs.mypy]
-dependencies = [
-  "types-PyYAML",
-  "mypy",
-  "semver",
-  "pytest",
-]
-
-[tool.hatch.envs.docs]
-dependencies = [
-  "mkdocs-material",
-  "mkdocstrings[python]",
-  "mkdocs-awesome-nav",
-  "mkdocs-add-number-plugin",
-  "gitpython",
-  "pyyaml",
-  "pymdown-extensions",
-  "mkdocs-gen-files",
-  "mkdocs-awesome-pages-plugin",
-  "mkdocs-macros-plugin",
-  "mkdocs-pagetree-plugin",
-  "mkdocs-git-authors-plugin",
-  "mkdocs-git-revision-date-localized-plugin"
-]
-
-
-[tool.hatch.envs.format]
-dependencies = [
-  "black",
-  "docformatter"
-]
-
-

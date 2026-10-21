@@ -25,6 +25,7 @@ path = [
   ".github/workflows/*.yml",
   ".gitlab-ci.yml",
   "pyproject.toml",
+  "uv.lock",
   "share/**",
   "src/**",
   "test/bin/**",
