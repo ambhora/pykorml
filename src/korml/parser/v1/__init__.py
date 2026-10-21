@@ -154,6 +154,7 @@ def _parse_scalar(
             ErrorCode.INVALID_ESCAPE,
             message=str(error),
             source_name=source_name,
+            at=token,
         ) from error
 
     return korml.model.Scalar[korml.lexer.v1.Token](
@@ -362,10 +363,22 @@ def _make_expected_scalar_error(
     source_name: str,
     token_array: collections.abc.Sequence[korml.lexer.v1.Token],
 ) -> korml.error.ParseError:
+    semantic_token_array = _without_trivia(token_array)
+
+    # Point at the token that should not be there, or at the one that is not
+    # a scalar.
+    if len(semantic_token_array) > 1:
+        token = semantic_token_array[1]
+    elif semantic_token_array:
+        token = semantic_token_array[0]
+    else:
+        token = None
+
     return _make_parse_error(
         ErrorCode.EXPECTED_SCALAR,
         message="expected scalar",
         source_name=source_name,
+        at=token,
     )
 
 
@@ -374,10 +387,13 @@ def _make_parse_error(
     *,
     message: str,
     source_name: str,
+    at: korml.lexer.v1.Token | None,
 ) -> korml.error.ParseError:
+    """Build a ParseError located at the token at, if there is one."""
     return korml.error.ParseError(
         message=message,
         source_name=source_name,
+        span=at.span if at is not None else None,
         code=str(code),
     )
 
@@ -403,6 +419,7 @@ def _require_trivia(
                 ErrorCode.UNEXPECTED_CONTENT,
                 message=f"unexpected content after {after}",
                 source_name=source_name,
+                at=token_array[index],
             )
 
 
@@ -411,6 +428,7 @@ def _add_unique_item(
     key: str,
     value: korml.model.Value[korml.lexer.v1.Token],
     *,
+    key_token: korml.lexer.v1.Token | None,
     source_name: str,
 ) -> None:
     """
@@ -424,6 +442,7 @@ def _add_unique_item(
             ErrorCode.DUPLICATE_KEY,
             message=f"duplicate mapping key {key!r}",
             source_name=source_name,
+            at=key_token,
         )
 
     mapping.add_item(key, value)
@@ -586,6 +605,7 @@ def _find_mapping_colon_index(
             ErrorCode.EXPECTED_MAPPING_COLON,
             message="expected ':' after mapping key",
             source_name=source_name,
+            at=token_array[key_index],
         )
 
     return colon_index
@@ -660,6 +680,7 @@ def _parse_value(
             ErrorCode.TOO_DEEP,
             message=f"collections are nested deeper than {MAX_NESTING_DEPTH} levels",
             source_name=source_name,
+            at=_first_non_trivia(token_array),
         )
 
     concrete_token_array = tuple(token_array)
@@ -670,6 +691,7 @@ def _parse_value(
             ErrorCode.EXPECTED_VALUE,
             message="expected value",
             source_name=source_name,
+            at=None,
         )
 
     if first_token.type is korml.lexer.v1.TokenType.FLOW_SEQUENCE_START:
@@ -715,6 +737,7 @@ def _parse_value(
         ErrorCode.EXPECTED_VALUE,
         message="expected value",
         source_name=source_name,
+        at=first_token,
     )
 
 
@@ -737,6 +760,7 @@ def _parse_flow_sequence(
             ErrorCode.EXPECTED_SEQUENCE,
             message="expected flow sequence",
             source_name=source_name,
+            at=(concrete_token_array[start_index] if start_index is not None else None),
         )
 
     end_index = _find_matching_flow_end(
@@ -798,6 +822,7 @@ def _parse_flow_mapping(
             ErrorCode.EXPECTED_MAPPING,
             message="expected flow mapping",
             source_name=source_name,
+            at=(concrete_token_array[start_index] if start_index is not None else None),
         )
 
     end_index = _find_matching_flow_end(
@@ -837,6 +862,7 @@ def _parse_flow_mapping(
                 ErrorCode.EXPECTED_MAPPING_COLON,
                 message="expected ':' after flow mapping key",
                 source_name=source_name,
+                at=_first_non_trivia(entry_token_array),
             )
 
         key = _parse_scalar(
@@ -852,7 +878,13 @@ def _parse_flow_mapping(
             depth=depth + 1,
         )
 
-        _add_unique_item(mapping, key, value, source_name=source_name)
+        _add_unique_item(
+            mapping,
+            key,
+            value,
+            key_token=_first_non_trivia(entry_token_array[:colon_index]),
+            source_name=source_name,
+        )
 
     return mapping
 
@@ -884,6 +916,7 @@ def _find_matching_flow_end(
         ErrorCode.EXPECTED_VALUE,
         message=f"expected {end_type.value!r}",
         source_name=source_name,
+        at=token_array[start_index],
     )
 
 
@@ -959,6 +992,7 @@ def _parse_sequence(
             ErrorCode.EXPECTED_SEQUENCE,
             message="expected sequence",
             source_name=source_name,
+            at=first_token,
         )
 
     indent = first_token.span.start.column
@@ -1025,6 +1059,7 @@ def _parse_mapping(
             ErrorCode.EXPECTED_MAPPING,
             message="expected mapping",
             source_name=source_name,
+            at=first_token,
         )
 
     indent = first_token.span.start.column
@@ -1039,6 +1074,7 @@ def _parse_mapping(
             ErrorCode.EXPECTED_MAPPING,
             message="expected mapping",
             source_name=source_name,
+            at=first_token,
         )
 
     mapping = korml.model.Mapping[korml.lexer.v1.Token](
@@ -1089,6 +1125,8 @@ def _parse_mapping(
             depth=depth + 1,
         )
 
-        _add_unique_item(mapping, key, value, source_name=source_name)
+        _add_unique_item(
+            mapping, key, value, key_token=concrete_token_array[key_index], source_name=source_name
+        )
 
     return mapping

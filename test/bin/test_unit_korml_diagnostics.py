@@ -52,3 +52,23 @@ def test_bare_carriage_return_starts_a_new_line() -> None:
 
     assert exc_info.value.span().start.line == 2
     assert exc_info.value.span().start.column == 4
+
+
+@pytest.mark.parametrize(
+    ("source", "line", "column"),
+    [
+        ("a: 1\na: 2\n", 2, 1),
+        ("[a, b]: 1\n", 1, 7),
+        ("a:\n  - x\n  y\n", 3, 3),
+        ('a: "\\q"\n', 1, 4),
+    ],
+)
+def test_parse_error_names_its_position(source: str, line: int, column: int) -> None:
+    with pytest.raises(korml.ParseError) as exc_info:
+        korml.loads(source, filename="app.korml")
+
+    span = exc_info.value.span()
+
+    assert (span.start.line, span.start.column) == (line, column)
+    assert f"--> app.korml:{line}:{column}" in str(exc_info.value)
+    assert exc_info.value.structured()["span"]["start"]["line"] == line

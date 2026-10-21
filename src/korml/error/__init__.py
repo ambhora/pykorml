@@ -345,9 +345,58 @@ class ParseError(CompilerError):
 
     ParseError is used when lexing succeeded sufficiently to produce a token
     stream, but the token stream does not satisfy the grammar expected by the
-    parser.
-
-    ParseError currently only stores source-level context through CompilerError.
-    It can later be extended with token information, expected grammar elements,
-    spans, or recovery hints.
+    parser. It carries the span of the token at fault when there is one, such
+    as the repeated key of a duplicate entry, and None when the input ends
+    where a value was expected.
     """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        source_name: str,
+        span: korml.core.Span | None,
+        code: str | None = None,
+    ):
+        """
+        Initialize a parser error, located at span if it is known.
+        """
+        self._span = span
+        super().__init__(
+            message=message,
+            source_name=source_name,
+            code=code,
+        )
+
+    def span(self) -> korml.core.Span | None:
+        """
+        Return the source span of the token at fault, if known.
+        """
+        return self._span
+
+    def structured(self) -> dict[str, typing.Any]:
+        """
+        Return a structured representation of the parser error.
+        """
+        data = super().structured()
+        data["span"] = None if self._span is None else self._span.to_dict()
+        return data
+
+    def __str__(self) -> str:
+        """
+        Return a human-readable parser diagnostic.
+        """
+        location = self._source_name
+
+        if self._span is not None:
+            location += f":{self._span.start.line}:{self._span.start.column}"
+
+        lines = [
+            f"{self.__class__.__name__}: {self._message}",
+            f"  --> {location}",
+        ]
+
+        if self._code is not None:
+            lines.append(f"  = code: {self._code}")
+
+        return "\n".join(lines)
