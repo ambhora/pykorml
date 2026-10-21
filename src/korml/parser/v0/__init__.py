@@ -30,6 +30,7 @@ def parse(file: lexer_v0.File) -> korml.model.Stream[lexer_v0.Token]:
                 file.token_array,
                 version=file.version,
                 source_name=file.filename,
+                depth=0,
             )
         )
 

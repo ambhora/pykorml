@@ -166,6 +166,7 @@ def test_parse_value_dispatches_to_plain_scalar() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert isinstance(value, korml.Scalar)
@@ -179,6 +180,7 @@ def test_parse_sequence_parses_scalar_items() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert sequence.style is korml.Style.block
@@ -193,6 +195,7 @@ def test_parse_value_dispatches_to_sequence() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert isinstance(value, korml.Sequence)
@@ -206,6 +209,7 @@ def test_parse_sequence_parses_nested_sequence_on_same_line() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert sequence.to_builtin() == [["first", "second"]]
@@ -219,6 +223,7 @@ def test_parse_sequence_preserves_comments_in_container_cst() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert sequence.to_builtin() == ["first", "second"]
@@ -232,6 +237,7 @@ def test_parse_mapping_parses_scalar_values() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert mapping.style is korml.Style.block
@@ -249,6 +255,7 @@ def test_parse_value_dispatches_to_mapping() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert isinstance(value, korml.Mapping)
@@ -265,6 +272,7 @@ def test_parse_mapping_parses_sequence_value() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert mapping.to_builtin() == {
@@ -279,6 +287,7 @@ def test_parse_mapping_parses_nested_mapping_value() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert mapping.to_builtin() == {
@@ -295,6 +304,7 @@ def test_parse_mapping_parses_single_quoted_key() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert mapping.to_builtin() == {
@@ -310,6 +320,7 @@ def test_parse_sequence_rejects_non_sequence_tokens() -> None:
             token_array,
             version=korml.Version.v1,
             source_name="<test>",
+            depth=0,
         )
 
     assert error_info.value.code() == str(korml.parser.v1.ErrorCode.EXPECTED_SEQUENCE)
@@ -323,6 +334,7 @@ def test_parse_mapping_rejects_non_mapping_tokens() -> None:
             token_array,
             version=korml.Version.v1,
             source_name="<test>",
+            depth=0,
         )
 
     assert error_info.value.code() == str(korml.parser.v1.ErrorCode.EXPECTED_MAPPING)
@@ -334,6 +346,7 @@ def test_parse_value_rejects_empty_tokens() -> None:
             (),
             version=korml.Version.v1,
             source_name="<test>",
+            depth=0,
         )
 
     assert error_info.value.code() == str(korml.parser.v1.ErrorCode.EXPECTED_VALUE)
@@ -347,6 +360,7 @@ def test_parse_sequence_rejects_item_without_value() -> None:
             token_array,
             version=korml.Version.v1,
             source_name="<test>",
+            depth=0,
         )
 
     assert error_info.value.code() == str(korml.parser.v1.ErrorCode.EXPECTED_VALUE)
@@ -384,6 +398,7 @@ def test_parse_flow_sequence() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert isinstance(sequence, korml.Sequence)
@@ -398,6 +413,7 @@ def test_parse_flow_sequence_parses_empty_sequence() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert isinstance(sequence, korml.Sequence)
@@ -412,6 +428,7 @@ def test_parse_flow_mapping() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert isinstance(mapping, korml.Mapping)
@@ -429,6 +446,7 @@ def test_parse_flow_mapping_parses_empty_mapping() -> None:
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert isinstance(mapping, korml.Mapping)
@@ -444,6 +462,7 @@ def test_parse_flow_mapping_rejects_entry_without_colon() -> None:
             token_array,
             version=korml.Version.v1,
             source_name="<test>",
+            depth=0,
         )
 
     assert error_info.value.code() == str(korml.parser.v1.ErrorCode.EXPECTED_MAPPING_COLON)

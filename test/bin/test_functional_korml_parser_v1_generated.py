@@ -36,6 +36,7 @@ def test_generated_block_token_streams_parse() -> None:
             token_array,
             version=korml.Version.v1,
             source_name=file.filename,
+            depth=0,
         )
 
         assert value.version is korml.Version.v1
@@ -78,6 +79,7 @@ def test_generated_block_token_mutations_are_handled_by_parser() -> None:
                     mutation.token_array,
                     version=korml.Version.v1,
                     source_name=file.filename,
+                    depth=0,
                 )
             except korml.ParseError:
                 rejected_count += 1
@@ -188,6 +190,7 @@ def test_missing_mapping_colon_token_mutation_is_rejected_by_parser() -> None:
             mutation.token_array,
             version=korml.Version.v1,
             source_name=file.filename,
+            depth=0,
         )
 
 
@@ -212,6 +215,7 @@ def test_missing_sequence_value_token_mutation_is_rejected_by_parser() -> None:
             mutation.token_array,
             version=korml.Version.v1,
             source_name=file.filename,
+            depth=0,
         )
 
 
@@ -252,6 +256,7 @@ entity_0_1: |
         token_array,
         version=korml.Version.v1,
         source_name="<test>",
+        depth=0,
     )
 
     assert mapping.to_builtin() == {

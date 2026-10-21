@@ -104,3 +104,21 @@ def test_indicators_inside_plain_scalars_are_text(source: str, expected: object)
 def test_duplicate_keys_are_errors(source: str) -> None:
     with pytest.raises(korml.ParseError, match="duplicate mapping key 'a'|'b'"):
         korml.loads(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "[" * 5000 + "]" * 5000,
+        "".join("  " * i + f"k{i}:\n" for i in range(200)) + "  " * 200 + "v\n",
+    ],
+    ids=["flow", "block"],
+)
+def test_deep_nesting_is_a_parse_error(source: str) -> None:
+    with pytest.raises(korml.ParseError, match="nested deeper than 128"):
+        korml.loads(source)
+
+
+def test_nesting_up_to_the_limit_is_accepted() -> None:
+    source = "[" * 128 + "]" * 128
+    assert korml.loads(source).to_builtin()

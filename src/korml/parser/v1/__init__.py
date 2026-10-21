@@ -20,10 +20,16 @@ class ErrorCode(str, enum.Enum):
     EXPECTED_MAPPING_COLON = "EXPECTED_MAPPING_COLON"
     UNEXPECTED_CONTENT = "UNEXPECTED_CONTENT"
     DUPLICATE_KEY = "DUPLICATE_KEY"
+    TOO_DEEP = "TOO_DEEP"
 
     def __str__(self) -> str:
         return self.value
 
+
+# The deepest nesting of collections the parser accepts. The parser recurses
+# once per level, and the limit keeps it well inside Python's recursion limit,
+# so a deeply nested source is a ParseError rather than a RecursionError.
+MAX_NESTING_DEPTH = 128
 
 _SCALAR_TOKEN_TYPE_SET = {
     korml.lexer.v1.TokenType.PLAIN_SCALAR,
@@ -73,6 +79,7 @@ def parse(
                 document_token_array,
                 version=file.version,
                 source_name=file.filename,
+                depth=0,
             )
         )
 
@@ -604,7 +611,15 @@ def _parse_value(
     *,
     version: korml.model.Version,
     source_name: str,
+    depth: int,
 ) -> korml.model.Value[korml.lexer.v1.Token]:
+    if depth > MAX_NESTING_DEPTH:
+        raise _make_parse_error(
+            ErrorCode.TOO_DEEP,
+            message=f"collections are nested deeper than {MAX_NESTING_DEPTH} levels",
+            source_name=source_name,
+        )
+
     concrete_token_array = tuple(token_array)
     first_token = _first_non_trivia(concrete_token_array)
 
@@ -620,6 +635,7 @@ def _parse_value(
             concrete_token_array,
             version=version,
             source_name=source_name,
+            depth=depth,
         )
 
     if first_token.type is korml.lexer.v1.TokenType.FLOW_MAPPING_START:
@@ -627,6 +643,7 @@ def _parse_value(
             concrete_token_array,
             version=version,
             source_name=source_name,
+            depth=depth,
         )
 
     if first_token.type is korml.lexer.v1.TokenType.DASH_ITEM:
@@ -634,6 +651,7 @@ def _parse_value(
             concrete_token_array,
             version=version,
             source_name=source_name,
+            depth=depth,
         )
 
     if first_token.type in _SCALAR_TOKEN_TYPE_SET:
@@ -642,6 +660,7 @@ def _parse_value(
                 concrete_token_array,
                 version=version,
                 source_name=source_name,
+                depth=depth,
             )
 
         return _parse_scalar(
@@ -662,6 +681,7 @@ def _parse_flow_sequence(
     *,
     version: korml.model.Version,
     source_name: str,
+    depth: int,
 ) -> korml.model.Sequence[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     start_index = _first_non_trivia_index(concrete_token_array)
@@ -702,6 +722,7 @@ def _parse_flow_sequence(
             element_token_array,
             version=version,
             source_name=source_name,
+            depth=depth + 1,
         )
         for element_token_array in element_array
         if _first_non_trivia(element_token_array) is not None
@@ -722,6 +743,7 @@ def _parse_flow_mapping(
     *,
     version: korml.model.Version,
     source_name: str,
+    depth: int,
 ) -> korml.model.Mapping[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     start_index = _first_non_trivia_index(concrete_token_array)
@@ -785,6 +807,7 @@ def _parse_flow_mapping(
             entry_token_array[colon_index + 1 :],
             version=version,
             source_name=source_name,
+            depth=depth + 1,
         )
 
         _add_unique_item(mapping, key, value, source_name=source_name)
@@ -884,6 +907,7 @@ def _parse_sequence(
     *,
     version: korml.model.Version,
     source_name: str,
+    depth: int,
 ) -> korml.model.Sequence[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     first_token = _first_non_trivia(concrete_token_array)
@@ -930,6 +954,7 @@ def _parse_sequence(
                 concrete_token_array[value_start:value_end],
                 version=version,
                 source_name=source_name,
+                depth=depth + 1,
             )
         )
 
@@ -948,6 +973,7 @@ def _parse_mapping(
     *,
     version: korml.model.Version,
     source_name: str,
+    depth: int,
 ) -> korml.model.Mapping[korml.lexer.v1.Token]:
     concrete_token_array = tuple(token_array)
     first_token = _first_non_trivia(concrete_token_array)
@@ -1018,6 +1044,7 @@ def _parse_mapping(
             concrete_token_array[colon_index + 1 : entry_end],
             version=version,
             source_name=source_name,
+            depth=depth + 1,
         )
 
         _add_unique_item(mapping, key, value, source_name=source_name)
