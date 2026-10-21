@@ -1,75 +1,67 @@
 # ------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Jayesh Badwaik <j.badwaik@fz-juelich.de>
 # ------------------------------------------------------------------------------
-quality.typecheck:
-  tags: ["docker"]
-  image: python:latest
+
+stages:
+  - legal
+  - check
+  - test
+
+default:
+  image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+
+variables:
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+  UV_LINK_MODE: copy
+
+.uv:
   before_script:
-    - python -m venv /root/venv
-    - source /root/venv/bin/activate
-    - pip install --upgrade pip
-    - pip install hatch
-    - hatch env create mypy
+    - uv sync --locked
+  cache:
+    key:
+      files: [uv.lock]
+    paths: [.cache/uv]
+
+# ------------------------------------------------------------------------------
+# Legal
+# ------------------------------------------------------------------------------
+
+# Licence and copyright information of every file, checked before any other
+# work.
+reuse:
+  extends: .uv
+  stage: legal
   script:
-    - hatch env run --env mypy -- mypy .
+    - uv run reuse lint
 
-test:
-  tags: ["docker"]
-  image: python:latest
-  before_script:
-    - python -m venv /root/venv
-    - source /root/venv/bin/activate
-    - pip install --upgrade pip
-    - pip install hatch
-    - hatch env create test
+# ------------------------------------------------------------------------------
+# Check
+# ------------------------------------------------------------------------------
+
+ruff:
+  extends: .uv
+  stage: check
   script:
-    - hatch env run --env test --  pytest
+    - uv run ruff check
+    - uv run ruff format --check
 
-license.check:
-  tags: ["docker"]
-  stage: .post
-  dependencies: []
-  image:
-    name: fsfe/reuse
-    entrypoint: ["/bin/sh", "-c"]
+# ------------------------------------------------------------------------------
+# Test
+# ------------------------------------------------------------------------------
+
+unit-test:
+  extends: .uv
+  stage: test
   script:
-    - reuse lint
+    - uv run pytest -q --ignore=test/bin/test_fuzz_korml.py
 
-
-docs:
-  image: python:3.11-slim
-  artifacts:
-    paths:
-      - public
-    expire_in: 1 week
-  before_script:
-    # Python / Hatch for MkDocs
-    - pip install --upgrade pip
-    - pip install hatch
-    - python --version
-    - hatch --version
-    # Node.js for Log4Brains
-    - apt-get update
+fuzz-test:
+  extends: .uv
+  stage: test
+  variables:
+    KORML_FUZZ_CASES: "2000"
   script:
-    # Build MkDocs (outputs to ./site)
-    - hatch --env docs run -- mkdocs build
-    # Publish for GitLab Pages
-    - mv site public
-
-
-publish:
-  stage: deploy
-  image: alpine:latest
-  pages: true
-  only:
-    - main
-  tags:
-    - docker
-  dependencies:
-    - docs
-  script:
-    - echo "Deploying to GitLab Pages..."
-  artifacts:
-    paths:
-      - public
-    expire_in: 1 week
+    - export KORML_FUZZ_SEED="${KORML_FUZZ_SEED:-$CI_PIPELINE_ID}"
+    - echo "fuzz seed=$KORML_FUZZ_SEED cases=$KORML_FUZZ_CASES"
+    - uv run pytest -q --no-cov test/bin/test_fuzz_korml.py

@@ -50,8 +50,10 @@ addopts = "--cov --cov-report term-missing --cov-fail-under=90 --cov-config=.cov
 # ------------------------------------------------------------------------------
 [dependency-groups]
 dev = [
+  "pip-audit>=2.7",
   "pytest>=8",
   "pytest-cov>=6",
+  "reuse>=5",
   "ruff>=0.15",
   # The test generators write YAML with ruamel.yaml; korml itself does not
   # use it.
