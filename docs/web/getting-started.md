@@ -63,10 +63,28 @@ text = korml.dumps({"name": "example"}, version=korml.Version.v0)
 assert text == '"name": "example"\n'
 ```
 
+## Editing without reformatting
+
+`dumps` writes a new document. To change some values of an existing source
+and keep everything else, comments and layout included, pass values of the
+parsed stream to `korml.edit` with the strings they become:
+
+```python
+source = "# the project\nname: example  # shown in the title\n"
+stream = korml.loads(source)
+
+edited = korml.edit(stream=stream, replacements=[(stream[0]["name"], "demo")])
+assert edited == '# the project\nname: "demo"  # shown in the title\n'
+```
+
+A replacement is always written as a double-quoted scalar, so no string can
+turn into structure. `edit` parses its result again and raises an error
+unless it reads back as the original with the replacements applied.
+
 ## Errors
 
-Every error korml raises for invalid input is a `korml.KormlError`. Lexer
-errors name the source and the position:
+Every error korml raises for invalid input is a `korml.KormlError`, and
+names the source and the position:
 
 ```python
 try:
@@ -78,7 +96,15 @@ except korml.KormlError as error:
 ```text
 LexError: unterminated double-quoted scalar
   --> app.korml:1:4
+  |
+1 | a: "x
+  |    ^
+  = code: UNEXPECTED_CHARACTER
 ```
+
+A program that must not print what it read, such as one reading secrets,
+uses `error.describe(quote_source=False)`, which gives the message and the
+position without the source line.
 
 ## The command line
 
