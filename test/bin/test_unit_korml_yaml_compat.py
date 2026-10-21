@@ -151,3 +151,22 @@ def test_invalid_double_quoted_escapes_are_errors(source: str) -> None:
 )
 def test_doubled_single_quote_is_an_escaped_quote(source: str, expected: object) -> None:
     assert _load(source) == expected
+
+
+@pytest.mark.parametrize("source", ["a:\n\t- x\n", "a:\n \tb: 1\n"])
+def test_tabs_in_block_indentation_are_errors(source: str) -> None:
+    with pytest.raises(korml.LexError, match="tabs are not allowed in indentation"):
+        korml.loads(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("a:\t1\n", {"a": "1"}),
+        ("a: x\t# c\n", {"a": "x"}),
+        ("\t# comment\na: 1\n", {"a": "1"}),
+        ("[a,\n\tb]\n", ["a", "b"]),
+    ],
+)
+def test_tabs_outside_block_indentation_are_whitespace(source: str, expected: object) -> None:
+    assert _load(source) == expected

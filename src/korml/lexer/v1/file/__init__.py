@@ -1531,6 +1531,39 @@ def _lex_newline(
     return token, new_state
 
 
+def _reject_tab_indentation(
+    input_text: str,
+    lexer_state: LexerState,
+    *,
+    value: str,
+    end: int,
+) -> None:
+    """
+    Raise a LexError if a tab indents content in block context.
+
+    Indentation decides the structure of a block collection, and a tab has
+    no defined width, so, as in YAML, block indentation is spaces only. A tab
+    before a comment, at the end of a line, inside a line or inside a flow
+    collection is ordinary whitespace.
+    """
+    at_line_start = lexer_state.position.column == 1
+    ends_line = end >= len(input_text) or input_text[end] in "\r\n#"
+
+    if "\t" not in value or not at_line_start or ends_line:
+        return
+
+    if lexer_state.flow_nesting_level > 0:
+        return
+
+    raise korml.error.LexError(
+        message="tabs are not allowed in indentation; indent with spaces",
+        code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
+        source_name=lexer_state.source_file.filename,
+        span=_make_error_span(lexer_state.position),
+        source_line=_source_line(input_text, lexer_state),
+    )
+
+
 def _lex_horizontal_whitespace(
     input_text: str,
     lexer_state: LexerState,
@@ -1560,6 +1593,8 @@ def _lex_horizontal_whitespace(
         offset += 1
 
     value = input_text[position.offset : offset]
+
+    _reject_tab_indentation(input_text, lexer_state, value=value, end=offset)
 
     token, new_position = _make_token(
         korml.lexer.v1.TokenType.WHITESPACE,
