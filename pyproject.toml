@@ -8,6 +8,9 @@ dynamic = ["version"]
 description = 'A korml Parser and Emitter'
 readme = "readme.md"
 license = "Apache-2.0"
+# match statements, X | None annotations and slotted dataclasses need 3.10;
+# 3.11 is the oldest version the tests and CI run on.
+requires-python = ">=3.11"
 authors = [
 { name = "Jayesh Badwaik", email = "j.badwaik@fz-juelich.de" },
 ]
