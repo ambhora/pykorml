@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------------------------------
 site_name: korml
 site_url: https://ambhora.gitlab.io/software/korml
-docs_dir: docs/website
+docs_dir: docs/web
 
 theme:
   name: material
