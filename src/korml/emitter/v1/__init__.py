@@ -61,10 +61,7 @@ def _emit_scalar(
 ) -> list[str]:
     prefix = " " * indent
 
-    if "\n" not in value:
-        return [prefix + _format_double_quoted_scalar(value)]
-
-    if not value.endswith("\n"):
+    if not _is_literal_block_safe(value):
         return [prefix + _format_double_quoted_scalar(value)]
 
     line_array = [prefix + "|"]
@@ -102,7 +99,7 @@ def _emit_sequence_scalar_item(
 ) -> list[str]:
     prefix = " " * indent
 
-    if "\n" not in value or not value.endswith("\n"):
+    if not _is_literal_block_safe(value):
         return [prefix + "- " + _format_double_quoted_scalar(value)]
 
     line_array = [prefix + "- |"]
@@ -149,13 +146,37 @@ def _emit_mapping_scalar_item(
 ) -> list[str]:
     prefix = " " * indent
 
-    if "\n" not in value or not value.endswith("\n"):
+    if not _is_literal_block_safe(value):
         return [prefix + formatted_key + ": " + _format_double_quoted_scalar(value)]
 
     line_array = [prefix + formatted_key + ": |"]
     line_array.extend(_literal_block_content_lines(value, indent=indent + 2))
 
     return line_array
+
+
+def _is_literal_block_safe(value: str) -> bool:
+    """
+    Return whether a literal block scalar reads back as exactly value.
+
+    A literal block keeps one final line break and drops trailing blank
+    lines, takes its indentation from its first line, and ends a line at any
+    line break the lexer knows, including a bare carriage return. A value
+    is written as a block only if none of that can change it: it ends with
+    exactly one line feed, and every line is non-empty, starts and ends
+    without whitespace and holds printable characters or tabs only. Every
+    other value is written double-quoted, which always reads back exactly.
+    """
+    if not value.endswith("\n") or value.endswith("\n\n"):
+        return False
+
+    for line in value[:-1].split("\n"):
+        if line == "" or line != line.strip(" \t"):
+            return False
+        if not all(char == "\t" or char.isprintable() for char in line):
+            return False
+
+    return True
 
 
 def _literal_block_content_lines(

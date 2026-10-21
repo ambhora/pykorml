@@ -6,7 +6,9 @@
 
 Each case mutates a valid source with Korml punctuation and checks two
 properties that must hold for any input: loading raises nothing but a
-KormlError, and lexing then unlexing gives back the source exactly.
+KormlError, and lexing then unlexing gives back the source exactly. Each
+case also dumps a random value, with line breaks, indicators and control
+characters in its strings, and checks that it loads back unchanged.
 
 KORML_FUZZ_SEED and KORML_FUZZ_CASES choose the seed and the number of
 cases; a failure names the seed, so it can be reproduced.
@@ -79,3 +81,41 @@ def test_mutated_source_fails_only_with_korml_error(case: int) -> None:
     except korml.KormlError:
         return
     assert korml.lexer.file.unlex(file) == source, f"seed={_SEED} case={case}"
+
+
+_TEXT = (
+    *"ab :#-'\"\\[]{},|>%!&*?\t\n\r",
+    "\r\n",
+    "---",
+    "...",
+    "  ",
+    "é",
+    "\x1b",
+    "\x85",
+    "\u2028",
+    "\ufeff",
+)
+
+
+def _random_text(rng: random.Random) -> str:
+    return "".join(rng.choice(_TEXT) for _ in range(rng.randint(0, 8)))
+
+
+def _random_value(rng: random.Random, depth: int) -> object:
+    kind = rng.random()
+    if depth > 3 or kind < 0.5:
+        return _random_text(rng)
+    if kind < 0.75:
+        return [_random_value(rng, depth + 1) for _ in range(rng.randint(0, 3))]
+    return {_random_text(rng): _random_value(rng, depth + 1) for _ in range(rng.randint(0, 3))}
+
+
+@pytest.mark.parametrize("case", range(_CASES))
+@pytest.mark.parametrize("version", [korml.Version.v0, korml.Version.v1])
+def test_dumped_value_loads_back_unchanged(case: int, version: korml.Version) -> None:
+    rng = random.Random(f"{_SEED}:{case}:dump")
+    value = _random_value(rng, 0)
+
+    text = korml.dumps(value, version=version)
+
+    assert korml.loads(text).to_builtin() == [value], f"seed={_SEED} case={case}"
