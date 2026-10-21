@@ -2,17 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # ------------------------------------------------------------------------------
 
+import collections.abc
+import copy
 import pathlib
+import typing
 
 import korml.emitter.v0
 import korml.emitter.v1
+import korml.error
 import korml.lexer.file
 import korml.lexer.v1
 import korml.model
 import korml.parser.v0
 import korml.parser.v1
 
-__all__ = ["dump", "dumps", "load", "loads"]
+__all__ = ["dump", "dumps", "edit", "load", "loads"]
 
 
 def loads(
@@ -129,3 +133,144 @@ def _make_value(
         return mapping
 
     raise TypeError(f"cannot dump {type(value).__name__!r}")
+
+
+_TRIVIA_SET = {
+    korml.lexer.v1.TokenType.WHITESPACE,
+    korml.lexer.v1.TokenType.COMMENT,
+    korml.lexer.v1.TokenType.NEWLINE,
+}
+
+_BLOCK_SCALAR_SET = {
+    korml.lexer.v1.TokenType.LITERAL_BLOCK_SCALAR,
+    korml.lexer.v1.TokenType.FOLDED_BLOCK_SCALAR,
+}
+
+
+def edit(
+    *,
+    stream: korml.model.Stream[korml.lexer.v1.Token],
+    replacements: collections.abc.Sequence[tuple[korml.model.Value[korml.lexer.v1.Token], str]],
+) -> str:
+    """
+    Return the source of a parsed stream with some values replaced by strings.
+
+    Each replacement pairs a value of the stream, as returned by loads or
+    load, with the string it becomes. Only the tokens of the replaced values
+    change; every comment, blank line, indentation and quoting style
+    elsewhere is kept, so a tool can change a value without reformatting the
+    file. A replaced value can be a scalar or a whole collection; the string
+    is always written as a double-quoted scalar, and a replaced block
+    collection becomes a scalar on the line of its key or dash.
+
+    The result is parsed again and must equal the original with the
+    replacements applied; anything else is a BugError, so an edit can never
+    change more than it says.
+    """
+    token_array = stream.token_array
+    index_map = {id(token): index for index, token in enumerate(token_array)}
+    path_map = _value_path_map(stream)
+    splice_array: list[tuple[int, int, str]] = []
+    path_array: list[tuple[tuple[int | str, ...], str]] = []
+
+    for value, text in replacements:
+        if not isinstance(text, str):
+            raise TypeError("replacement text must be a string")
+
+        path = path_map.get(id(value))
+        if path is None:
+            raise ValueError("replacement value is not a value of this stream")
+
+        splice_array.append(_splice_for(value, text, index_map=index_map))
+        path_array.append((path, text))
+
+    splice_array.sort()
+    for (_, previous_end, _), (start, _, _) in zip(splice_array, splice_array[1:], strict=False):
+        if start < previous_end:
+            raise ValueError("replacement values overlap")
+
+    expected = copy.deepcopy(stream.to_builtin())
+    for path, text in path_array:
+        _set_path(expected, path, text)
+
+    piece_array: list[str] = []
+    cursor = 0
+    for start, end, text in splice_array:
+        piece_array.extend(token.value for token in token_array[cursor:start])
+        piece_array.append(text)
+        cursor = end
+    piece_array.extend(token.value for token in token_array[cursor:])
+    source = "".join(piece_array)
+
+    if loads(source, filename=stream.filename).to_builtin() != expected:
+        raise korml.error.BugError(
+            message="edited source does not read back as the edited values",
+            location="korml.api.edit",
+            source_name=stream.filename,
+        )
+
+    return source
+
+
+def _splice_for(
+    value: korml.model.Value[korml.lexer.v1.Token],
+    text: str,
+    *,
+    index_map: dict[int, int],
+) -> tuple[int, int, str]:
+    """Return the token range a replaced value covers and the text it becomes."""
+    content_array = [token for token in value.token_array if token.type not in _TRIVIA_SET]
+    if not content_array:
+        raise ValueError("replacement value has no tokens")
+
+    start = index_map[id(content_array[0])]
+    end = index_map[id(content_array[-1])] + 1
+    scalar = korml.emitter.v1._format_double_quoted_scalar(text)
+
+    # A block scalar token includes the line break that ends its last line;
+    # the quoted scalar replacing it keeps that line break.
+    if content_array[-1].type in _BLOCK_SCALAR_SET:
+        scalar += _final_line_break(content_array[-1].value)
+
+    # A block collection starts on the line after its key or dash; the scalar
+    # replacing it goes on that line, after one space.
+    block_collection = (
+        isinstance(value, (korml.model.Mapping, korml.model.Sequence))
+        and value.style is korml.model.Style.block
+    )
+    if block_collection and value.token_array:
+        return index_map[id(value.token_array[0])], end, " " + scalar
+
+    return start, end, scalar
+
+
+def _final_line_break(value: str) -> str:
+    for line_break in ("\r\n", "\n", "\r"):
+        if value.endswith(line_break):
+            return line_break
+    return ""
+
+
+def _value_path_map(
+    stream: korml.model.Stream[korml.lexer.v1.Token],
+) -> dict[int, tuple[int | str, ...]]:
+    """Map the identity of every value of a stream to its path."""
+    path_map: dict[int, tuple[int | str, ...]] = {}
+    pending: list[tuple[korml.model.Value[korml.lexer.v1.Token], tuple[int | str, ...]]] = [
+        (document, (index,)) for index, document in enumerate(stream.document_array)
+    ]
+    while pending:
+        value, path = pending.pop()
+        path_map[id(value)] = path
+        if isinstance(value, korml.model.Mapping):
+            pending.extend((child, (*path, key)) for key, child in value.value_map.items())
+        elif isinstance(value, korml.model.Sequence):
+            pending.extend((child, (*path, index)) for index, child in enumerate(value))
+    return path_map
+
+
+def _set_path(builtin: list[object], path: tuple[int | str, ...], text: str) -> None:
+    container: typing.Any = builtin
+    for part in path[:-1]:
+        container = container[part]
+    container[path[-1]] = text

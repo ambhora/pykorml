@@ -122,3 +122,30 @@ def test_dumped_value_loads_back_unchanged(case: int, version: korml.Version) ->
     text = korml.dumps(value, version=version)
 
     assert korml.loads(text).to_builtin() == [value], f"seed={_SEED} case={case}"
+
+
+def _values(value: korml.Value) -> list[korml.Value]:
+    found = [value]
+    if isinstance(value, korml.Mapping):
+        for child in value.value_map.values():
+            found.extend(_values(child))
+    elif isinstance(value, korml.Sequence):
+        for child in value:
+            found.extend(_values(child))
+    return found
+
+
+@pytest.mark.parametrize("case", range(_CASES))
+def test_edit_replaces_only_the_chosen_value(case: int) -> None:
+    rng = random.Random(f"{_SEED}:{case}:edit")
+    source = korml.dumps(_random_value(rng, 0), version=korml.Version.v0)
+    stream = korml.loads(source)
+    if not stream.document_array:
+        return
+    value = rng.choice(_values(stream[0]))
+
+    # edit() parses its result again and raises BugError unless it equals the
+    # original with the replacement applied.
+    result = korml.edit(stream=stream, replacements=[(value, _random_text(rng))])
+
+    assert isinstance(result, str), f"seed={_SEED} case={case}"
