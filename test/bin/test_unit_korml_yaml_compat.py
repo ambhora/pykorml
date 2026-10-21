@@ -73,3 +73,28 @@ def test_block_scalar_ends_at_the_indentation_of_its_parent(source: str, expecte
 def test_content_outside_every_node_is_an_error(source: str) -> None:
     with pytest.raises(korml.ParseError, match="unexpected content"):
         korml.loads(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    [
+        ("a: &x 1\n", "anchors"),
+        ("b: *x\n", "aliases"),
+        ("a: !!str 1\n", "tags"),
+        ("? a\n: b\n", "complex mapping keys"),
+        ("a: %x\n", "directives"),
+        ("a: @x\n", "reserved"),
+        ("[&a]\n", "anchors"),
+    ],
+)
+def test_excluded_yaml_features_are_errors(source: str, message: str) -> None:
+    with pytest.raises(korml.LexError, match=message):
+        korml.loads(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [("a: ?x\n", {"a": "?x"}), ("a: x&y*z!\n", {"a": "x&y*z!"})],
+)
+def test_indicators_inside_plain_scalars_are_text(source: str, expected: object) -> None:
+    assert _load(source) == expected

@@ -1216,6 +1216,44 @@ def _mode_after_value(lexer_state: LexerState) -> LexerMode:
     return LexerMode.VALUE_START
 
 
+_EXCLUDED_INDICATOR_MESSAGE_MAP = {
+    "&": "anchors are not supported in korml",
+    "*": "aliases are not supported in korml",
+    "!": "tags are not supported in korml",
+    "%": "directives are not supported in korml",
+    "@": "'@' is reserved and cannot start a plain scalar",
+    "`": "'`' is reserved and cannot start a plain scalar",
+}
+
+
+def _reject_excluded_indicator(input_text: str, lexer_state: LexerState) -> None:
+    """
+    Raise a LexError if a plain scalar would start with a YAML indicator.
+
+    YAML gives these characters a meaning at the start of a node: anchors,
+    aliases, tags, directives, complex keys, and two reserved characters.
+    Korml excludes those features, and reading them as text would make korml
+    and YAML disagree about the same source, so they are errors instead.
+    """
+    offset = lexer_state.position.offset
+    char = input_text[offset]
+    message = _EXCLUDED_INDICATOR_MESSAGE_MAP.get(char)
+
+    if char == "?" and _is_token_boundary(input_text, offset + 1):
+        message = "complex mapping keys are not supported in korml"
+
+    if message is None:
+        return
+
+    raise korml.error.LexError(
+        message=message,
+        code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
+        source_name=lexer_state.source_file.filename,
+        span=_make_error_span(lexer_state.position),
+        source_line=_read_until_newline(input_text, lexer_state),
+    )
+
+
 def _lex_plain_scalar(
     input_text: str,
     lexer_state: LexerState,
@@ -1245,6 +1283,8 @@ def _lex_plain_scalar(
         offset += 1
 
     value = input_text[position.offset : offset].rstrip()
+
+    _reject_excluded_indicator(input_text, lexer_state)
 
     # As in YAML, a flow indicator cannot start a plain scalar.
     if value == "" or value[0] in ",[]{}":
