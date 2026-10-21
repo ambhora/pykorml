@@ -336,7 +336,10 @@ def _compile_optional_integer(
     if not _INTEGER_PATTERN.fullmatch(value):
         raise SchemaError(f"{_format_path(path)} must be an integer scalar")
 
-    return int(value)
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise SchemaError(f"{_format_path(path)} has an integer value too large to convert") from exc
 
 
 def _check_reference_exists(
@@ -513,7 +516,16 @@ def _validate_integer_scalar(
             )
         ]
 
-    integer = int(value)
+    try:
+        integer = int(value)
+    except ValueError:
+        return [
+            ValidationError(
+                code=ErrorCode.INVALID_SCALAR,
+                path=path,
+                message=f"integer scalar for {type_definition.name} is too large to convert",
+            )
+        ]
 
     if type_definition.minimum is not None and integer < type_definition.minimum:
         return [

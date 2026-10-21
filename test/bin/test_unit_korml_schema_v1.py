@@ -457,3 +457,18 @@ def test_schema_specification_validates_itself() -> None:
     schema = korml.schema.compile_schema(schema_builtin)
 
     assert korml.schema.validate(schema_builtin, schema) == []
+
+
+def test_schema_oversized_integer_bound_is_a_schema_error() -> None:
+    with pytest.raises(korml.schema.SchemaError, match="integer value too large"):
+        korml.schema.v1._compile_optional_integer("9" * 4301, ("minimum",))
+
+
+def test_oversized_integer_value_returns_validation_error() -> None:
+    integer_type = korml.schema.v1.TypeDefinition(name="Integer", kind="scalar", scalar="integer")
+
+    errors = korml.schema.v1._validate_integer_scalar("9" * 4301, integer_type, ("value",))
+
+    assert len(errors) == 1
+    assert errors[0].code is korml.schema.ErrorCode.INVALID_SCALAR
+    assert errors[0].path == ("value",)
