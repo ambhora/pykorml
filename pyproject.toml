@@ -11,11 +11,7 @@ license = "Apache-2.0"
 authors = [
 { name = "Jayesh Badwaik", email = "j.badwaik@fz-juelich.de" },
 ]
-dependencies = [
-  "semver",
-  "pexpect",
-  "jsonschema"
-]
+dependencies = []
 
 [project.urls]
 Source = "https://gitlab.com/ambhora/software/korml"
