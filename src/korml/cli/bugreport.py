@@ -18,7 +18,9 @@ class AnsiCode(enum.Enum):
 
 
 class DiagnosticExitCode(enum.IntEnum):
-    INTERNAL_ERROR = 2
+    # sysexits.h: an internal software error. argparse uses 2 for invalid
+    # usage, so an internal error needs another status.
+    INTERNAL_ERROR = 70
 
 
 @dataclasses.dataclass(frozen=True)
