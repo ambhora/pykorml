@@ -89,3 +89,16 @@ def test_missing_input_is_a_user_error(
 
 def test_bug_report_names_the_issue_tracker_of_the_project_urls() -> None:
     assert korml.cli.bugreport.issues_url() == "https://gitlab.com/ambhora/software/korml/-/issues"
+
+
+def test_lex_drops_a_byte_order_mark(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "a.korml"
+    source.write_bytes(b"\xef\xbb\xbfa: 1\n")
+    output = tmp_path / "tokens.txt"
+
+    status = _run(monkeypatch, "lex", "--input", str(source), "--output", str(output))
+
+    assert status == 0
+    assert "\ufeff" not in output.read_text(encoding="utf-8")

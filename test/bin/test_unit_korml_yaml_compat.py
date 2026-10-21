@@ -8,6 +8,7 @@
 import pytest
 
 import korml
+import korml.lexer.file
 
 
 def _load(source: str) -> object:
@@ -170,3 +171,19 @@ def test_tabs_in_block_indentation_are_errors(source: str) -> None:
 )
 def test_tabs_outside_block_indentation_are_whitespace(source: str, expected: object) -> None:
     assert _load(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("\ufeffa: 1\n", [{"a": "1"}]),
+        ("\ufeff%!korml version 1.0\n---\na: 1\n...\n", [{"a": "1"}]),
+    ],
+)
+def test_byte_order_mark_is_dropped(source: str, expected: object) -> None:
+    assert korml.loads(source).to_builtin() == expected
+
+
+def test_lexer_rejects_text_with_a_byte_order_mark() -> None:
+    with pytest.raises(korml.LexError, match="byte-order mark"):
+        korml.lexer.file.lex("<test>", "\ufeffa: 1\n")

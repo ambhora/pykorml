@@ -21,9 +21,11 @@ def loads(
     filename: str = "<string>",
     debug: bool = False,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
+    # A byte-order mark is an artefact of the encoding, not Korml text; it is
+    # dropped as YAML does, so a file saved with one reads like one without.
     file = korml.lexer.file.lex(
         filename=filename,
-        input_text=input_text,
+        input_text=input_text.removeprefix("\ufeff"),
         debug=debug,
     )
 
