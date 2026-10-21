@@ -7,6 +7,15 @@ stages:
   - legal
   - check
   - test
+  - security
+
+include:
+  # GitLab's scanners available without Ultimate. Dependency scanning, DAST,
+  # API and coverage-guided fuzzing need Ultimate, and container scanning
+  # needs an image, which this project does not build.
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/SAST-IaC.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
 
 default:
   image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
@@ -65,3 +74,59 @@ fuzz-test:
     - export KORML_FUZZ_SEED="${KORML_FUZZ_SEED:-$CI_PIPELINE_ID}"
     - echo "fuzz seed=$KORML_FUZZ_SEED cases=$KORML_FUZZ_CASES"
     - uv run pytest -q --no-cov test/bin/test_fuzz_korml.py
+
+# ------------------------------------------------------------------------------
+# Security
+# ------------------------------------------------------------------------------
+
+# The templates put their jobs in the test stage; move them here. Every
+# analyzer job extends one of these base jobs.
+sast:
+  stage: security
+
+iac-sast:
+  stage: security
+
+# A scanner that crashes fails the pipeline instead of passing silently, and
+# its report is kept as a plain artifact for security-gate.
+semgrep-sast:
+  allow_failure: false
+  artifacts:
+    paths: [gl-sast-report.json]
+
+kics-iac-sast:
+  allow_failure: false
+
+secret_detection:
+  stage: security
+  allow_failure: false
+  artifacts:
+    paths: [gl-secret-detection-report.json]
+
+# Without Ultimate, findings appear only in the report artifacts and never
+# fail a pipeline; .gitlab/scripts/security_gate.py turns them into a failing
+# job and lists every finding.
+security-gate:
+  stage: security
+  needs:
+    - job: semgrep-sast
+      artifacts: true
+      optional: true
+    - job: secret_detection
+      artifacts: true
+      optional: true
+  script:
+    - python3 .gitlab/scripts/security_gate.py
+
+# GitLab's dependency scanning needs Ultimate. pip-audit checks every locked
+# dependency against the PyPI advisory database instead. korml has no
+# runtime dependencies, so this covers the tools that run in CI and build
+# the package and the documentation.
+pip-audit:
+  extends: .uv
+  stage: security
+  script:
+    - uv export --frozen --all-groups --no-emit-project
+      --format requirements-txt --output-file requirements.txt
+    - uv run pip-audit --strict --disable-pip --require-hashes
+      -r requirements.txt
