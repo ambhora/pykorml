@@ -1,0 +1,52 @@
+# ------------------------------------------------------------------------------
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Jayesh Badwaik <j.badwaik@fz-juelich.de>
+# ------------------------------------------------------------------------------
+
+site_name: korml
+site_description: The Python implementation of the Korml markup language
+site_url: https://ambhora.gitlab.io/software/korml
+docs_dir: docs/web
+site_dir: build/site
+
+theme:
+  name: materialx
+  # The kosha colours are defined in stylesheets/extra.css.
+  palette:
+    scheme: kosha
+  features:
+    - content.code.copy
+    - navigation.instant
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - toc.follow
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Reference:
+      - reference/index.md
+      - Specification:
+          - reference/specification/index.md
+          - Lexer: reference/specification/lexer.md
+  - Explanation:
+      - explanation/index.md
+      - Language: explanation/language/index.md
+      - Compiler: explanation/compiler/index.md
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true

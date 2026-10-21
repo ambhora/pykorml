@@ -57,6 +57,10 @@ dev = [
   # use it.
   "ruamel.yaml>=0.18",
 ]
+docs = [
+  "mkdocs-materialx>=10.2",
+  "properdocs>=1.6.7",
+]
 
 # ------------------------------------------------------------------------------
 # Ruff configuration
