@@ -91,6 +91,29 @@ def _check_tokens(file: korml.lexer.v1.File, max_tokens: int | None) -> None:
         )
 
 
+def _check_flow_depth(file: korml.lexer.v1.File) -> None:
+    """Reject excessive flow nesting before its recursive parsing work starts."""
+    depth = 0
+    for token in file.token_array:
+        if token.type in (
+            korml.lexer.v1.TokenType.FLOW_SEQUENCE_START,
+            korml.lexer.v1.TokenType.FLOW_MAPPING_START,
+        ):
+            depth += 1
+            if depth > MAX_NESTING_DEPTH:
+                raise _make_parse_error(
+                    ErrorCode.TOO_DEEP,
+                    message=f"collections are nested deeper than {MAX_NESTING_DEPTH} levels",
+                    source_name=file.filename,
+                    at=token,
+                )
+        elif token.type in (
+            korml.lexer.v1.TokenType.FLOW_SEQUENCE_END,
+            korml.lexer.v1.TokenType.FLOW_MAPPING_END,
+        ):
+            depth -= 1
+
+
 def parse(
     file: korml.lexer.v1.File,
     *,
@@ -101,6 +124,7 @@ def parse(
         raise ValueError(f"parser v1 cannot parse version {file.version.value!r}")
 
     _check_tokens(file, max_tokens)
+    _check_flow_depth(file)
     budget = _ParseBudget(remaining=max_work)
     document_array: list[korml.model.Value[korml.lexer.v1.Token]] = []
 

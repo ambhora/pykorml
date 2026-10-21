@@ -29,6 +29,7 @@ def parse(
         raise ValueError(f"parser v0 cannot parse version {file.version.value!r}")
 
     parser_v1._check_tokens(file, max_tokens)
+    parser_v1._check_flow_depth(file)
     budget = parser_v1._ParseBudget(remaining=max_work)
     document_array: list[korml.model.Value[lexer_v0.Token]] = []
 
