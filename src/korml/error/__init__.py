@@ -148,7 +148,9 @@ class BugError(KormlError):
         span: korml.core.Span | None = None,
         source_line: str | None = None,
     ):
-        self.message = message
+        # The summary is not stored as self.message, which would hide the
+        # message() method every korml error has.
+        self.summary = message
         self.location = location
         self.details = details
         self.source_name = source_name
