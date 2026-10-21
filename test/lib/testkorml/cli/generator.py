@@ -27,7 +27,10 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=pathlib.Path,
         default=None,
-        help="Write input.korml and expected.json to this directory. If omitted, write source to stdout.",
+        help=(
+            "Write input.korml and expected.json to this directory. If omitted, "
+            "write source to stdout."
+        ),
     )
 
     set_parser = subparser.add_parser(
@@ -40,7 +43,10 @@ def parse_args() -> argparse.Namespace:
     set_parser.add_argument(
         "--feature-coverage",
         action="store_true",
-        help="Generate additional cases that force each enabled feature to appear alone when possible.",
+        help=(
+            "Generate additional cases that force each enabled feature to appear "
+            "alone when possible."
+        ),
     )
     set_parser.add_argument(
         "--output",

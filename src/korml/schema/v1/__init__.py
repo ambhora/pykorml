@@ -374,7 +374,8 @@ def _check_type_definition_consistency(type_definition: TypeDefinition) -> None:
         for required_name in type_definition.required:
             if required_name not in type_definition.fields:
                 raise SchemaError(
-                    f"types.{type_definition.name}.required contains unknown field {required_name!r}"
+                    f"types.{type_definition.name}.required contains unknown field "
+                    f"{required_name!r}"
                 )
 
     if type_definition.minimum is not None and type_definition.maximum is not None:
