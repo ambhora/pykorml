@@ -72,7 +72,7 @@ def lex(filename: str, input_text: str, debug: bool = False) -> lexer_v0.File:
                     ),
                     source_name=filename,
                     span=_make_error_span(lexer_state.position),
-                    source_line=v1_file._read_until_newline(input_text, lexer_state),
+                    source_line=v1_file._source_line(input_text, lexer_state),
                 )
 
         _reject_stream_token(token, input_text, lexer_state)
@@ -84,7 +84,7 @@ def lex(filename: str, input_text: str, debug: bool = False) -> lexer_v0.File:
             code=lexer_v0.ErrorCode.UNEXPECTED_CHARACTER,
             source_name=filename,
             span=_make_error_span(lexer_state.position),
-            source_line=v1_file._read_until_newline(input_text, lexer_state),
+            source_line=v1_file._source_line(input_text, lexer_state),
         )
 
     return lexer_v0.File(
@@ -147,7 +147,7 @@ def _reject_stream_token(
         code=lexer_v0.ErrorCode.UNEXPECTED_CHARACTER,
         source_name=lexer_state.source_file.filename,
         span=token.span,
-        source_line=v1_file._read_until_newline(input_text, lexer_state),
+        source_line=v1_file._source_line(input_text, lexer_state),
     )
 
 

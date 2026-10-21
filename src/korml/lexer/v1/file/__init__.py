@@ -247,6 +247,29 @@ def _read_until_newline(
     return input_text[start:end]
 
 
+def _source_line(
+    input_text: str,
+    lexer_state: LexerState,
+) -> str:
+    """
+    Return the whole source line that contains the current position.
+
+    Diagnostics print it with a caret under the column of the position, so it
+    starts at the beginning of the line, not at the position.
+    """
+    start = lexer_state.position.offset
+
+    while start > 0 and input_text[start - 1] not in "\r\n":
+        start -= 1
+
+    end = lexer_state.position.offset
+
+    while end < len(input_text) and input_text[end] not in "\r\n":
+        end += 1
+
+    return input_text[start:end]
+
+
 def unlex(file: korml.lexer.v1.File) -> str:
     """
     Convert a tokenized korml file back to source text.
@@ -315,7 +338,7 @@ def _lex_flow_entry_separator(
             location="korml.lexer._lex_flow_entry_separator",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -349,7 +372,7 @@ def _lex_document_end(
             location="korml.lexer._lex_document_end",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -435,7 +458,7 @@ def lex(filename: str, input_text: str, debug=False) -> korml.lexer.v1.File:
                     ),
                     source_name=lexer_state.source_file.filename,
                     span=_make_error_span(lexer_state.position),
-                    source_line=_read_until_newline(input_text, lexer_state),
+                    source_line=_source_line(input_text, lexer_state),
                 )
 
     if lexer_state.flow_nesting_level != 0:
@@ -444,7 +467,7 @@ def lex(filename: str, input_text: str, debug=False) -> korml.lexer.v1.File:
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(lexer_state.position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     if lexer_state.version == korml.model.Version.unknown:
@@ -453,7 +476,7 @@ def lex(filename: str, input_text: str, debug=False) -> korml.lexer.v1.File:
             code=korml.lexer.v1.ErrorCode.MISSING_VERSION_DIRECTIVE,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(lexer_state.position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     return korml.lexer.v1.File(
@@ -571,7 +594,7 @@ def _lex_single_quoted_scalar(
             location="korml.lexer._lex_single_quoted_scalar",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     offset += 1
@@ -585,7 +608,7 @@ def _lex_single_quoted_scalar(
                 code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(position),
-                source_line=_read_until_newline(input_text, lexer_state),
+                source_line=_source_line(input_text, lexer_state),
             )
 
         # A doubled quote is an escaped quote inside the scalar.
@@ -622,7 +645,7 @@ def _lex_single_quoted_scalar(
         code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
         source_name=lexer_state.source_file.filename,
         span=_make_error_span(position),
-        source_line=_read_until_newline(input_text, lexer_state),
+        source_line=_source_line(input_text, lexer_state),
     )
 
 
@@ -650,7 +673,7 @@ def _validate_flow_value_boundary(
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(lexer_state.position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
 
@@ -669,7 +692,7 @@ def _lex_double_quoted_scalar(
             location="korml.lexer._lex_double_quoted_scalar",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     offset += 1
@@ -684,7 +707,7 @@ def _lex_double_quoted_scalar(
                 code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(position),
-                source_line=_read_until_newline(input_text, lexer_state),
+                source_line=_source_line(input_text, lexer_state),
             )
 
         if escaped:
@@ -725,7 +748,7 @@ def _lex_double_quoted_scalar(
         code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
         source_name=lexer_state.source_file.filename,
         span=_make_error_span(position),
-        source_line=_read_until_newline(input_text, lexer_state),
+        source_line=_source_line(input_text, lexer_state),
     )
 
 
@@ -746,7 +769,7 @@ def _lex_flow_sequence_start(
             location="korml.lexer._lex_flow_sequence_start",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -784,7 +807,7 @@ def _lex_flow_mapping_start(
             location="korml.lexer._lex_flow_mapping_start",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -820,7 +843,7 @@ def _lex_value_start_token(
             details=f"current mode is {lexer_state.mode!r}",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(lexer_state.position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     _debug_lexer(lexer_state, "peek value start char")
@@ -859,7 +882,7 @@ def _lex_value_start_token(
                 code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(position),
-                source_line=_read_until_newline(input_text, lexer_state),
+                source_line=_source_line(input_text, lexer_state),
             )
 
         case "}":
@@ -868,7 +891,7 @@ def _lex_value_start_token(
                 code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(position),
-                source_line=_read_until_newline(input_text, lexer_state),
+                source_line=_source_line(input_text, lexer_state),
             )
 
         case ".":
@@ -895,7 +918,7 @@ def _lex_folded_block_scalar(
             location="korml.lexer._lex_folded_block_scalar",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     offset = position.offset + 1
@@ -947,7 +970,7 @@ def _lex_literal_block_scalar(
             location="korml.lexer._lex_literal_block_scalar",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     offset = position.offset + 1
@@ -1005,7 +1028,7 @@ def _lex_flow_value_start_token(
             details=f"current mode is {lexer_state.mode!r}",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(lexer_state.position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     position = lexer_state.position
@@ -1042,7 +1065,7 @@ def _lex_flow_value_start_token(
                 code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(position),
-                source_line=_read_until_newline(input_text, lexer_state),
+                source_line=_source_line(input_text, lexer_state),
             )
 
         case ">":
@@ -1051,7 +1074,7 @@ def _lex_flow_value_start_token(
                 code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(position),
-                source_line=_read_until_newline(input_text, lexer_state),
+                source_line=_source_line(input_text, lexer_state),
             )
         case ".":
             if input_text.startswith("...", position.offset):
@@ -1060,7 +1083,7 @@ def _lex_flow_value_start_token(
                     code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                     source_name=lexer_state.source_file.filename,
                     span=_make_error_span(position),
-                    source_line=_read_until_newline(input_text, lexer_state),
+                    source_line=_source_line(input_text, lexer_state),
                 )
 
             return _lex_plain_scalar(input_text, lexer_state)
@@ -1083,7 +1106,7 @@ def _lex_flow_mapping_end(
             location="korml.lexer._lex_flow_mapping_end",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     new_flow_nesting_level = lexer_state.flow_nesting_level - 1
@@ -1094,7 +1117,7 @@ def _lex_flow_mapping_end(
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -1129,7 +1152,7 @@ def _lex_flow_sequence_end(
             location="korml.lexer._lex_flow_sequence_end",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     new_flow_nesting_level = lexer_state.flow_nesting_level - 1
@@ -1140,7 +1163,7 @@ def _lex_flow_sequence_end(
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -1175,7 +1198,7 @@ def _lex_colon(
             location="korml.lexer._lex_colon",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -1255,7 +1278,7 @@ def _reject_excluded_indicator(input_text: str, lexer_state: LexerState) -> None
         code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
         source_name=lexer_state.source_file.filename,
         span=_make_error_span(lexer_state.position),
-        source_line=_read_until_newline(input_text, lexer_state),
+        source_line=_source_line(input_text, lexer_state),
     )
 
 
@@ -1298,7 +1321,7 @@ def _lex_plain_scalar(
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -1336,7 +1359,7 @@ def _lex_stream_token(
             details=f"current mode is {lexer_state.mode!r}",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(lexer_state.position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     position = lexer_state.position
@@ -1347,7 +1370,7 @@ def _lex_stream_token(
             code=korml.lexer.v1.ErrorCode.MISSING_DOCUMENT_START,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     token, new_position = _make_token(
@@ -1384,7 +1407,7 @@ def _lex_dash_at_value_start(
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     next_offset = position.offset + 1
@@ -1424,7 +1447,7 @@ def _lex_version_directive(
             code=korml.lexer.v1.ErrorCode.MISSING_VERSION_DIRECTIVE,
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(lexer_state.position),
-            source_line=_read_until_newline(input_text, lexer_state),
+            source_line=_source_line(input_text, lexer_state),
         )
 
     value = match.group(0)
@@ -1439,7 +1462,7 @@ def _lex_version_directive(
                 code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(lexer_state.position),
-                source_line=_read_until_newline(input_text, lexer_state),
+                source_line=_source_line(input_text, lexer_state),
             )
 
     token, new_position = _make_token(
@@ -1603,7 +1626,7 @@ def _raise_lexer_bug(
         details=details,
         source_name=lexer_state.source_file.filename,
         span=_make_error_span(lexer_state.position),
-        source_line=_read_until_newline(
+        source_line=_source_line(
             lexer_state.source_file.value,
             lexer_state,
         ),
