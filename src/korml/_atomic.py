@@ -30,15 +30,11 @@ def _write_posix(destination: pathlib.Path, data: bytes) -> None:
     parent_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
     temporary_name = f".{destination.name}.{secrets.token_hex(12)}.tmp"
     try:
-        fd = os.open(
-            temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600, dir_fd=parent_fd
-        )
+        fd = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600, dir_fd=parent_fd)
         try:
             with os.fdopen(fd, "wb") as stream:
                 try:
-                    previous = os.stat(
-                        destination.name, dir_fd=parent_fd, follow_symlinks=False
-                    )
+                    previous = os.stat(destination.name, dir_fd=parent_fd, follow_symlinks=False)
                 except FileNotFoundError:
                     previous = None
                 if previous is not None and stat.S_ISREG(previous.st_mode):

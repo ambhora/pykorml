@@ -96,7 +96,7 @@ def test_bug_error_quotes_its_source_line_only_on_request() -> None:
 
 
 def test_control_sequences_are_escaped_in_human_diagnostics() -> None:
-    source = '%!korml version 1.0\x1b[2J\n---\nx\n...\n'
+    source = "%!korml version 1.0\x1b[2J\n---\nx\n...\n"
     with pytest.raises(korml.KormlError) as exc:
         korml.loads(source, filename="evil\x1b[1K.korml")
 
@@ -107,7 +107,7 @@ def test_control_sequences_are_escaped_in_human_diagnostics() -> None:
 
 
 def test_control_characters_in_source_line_keep_caret_aligned() -> None:
-    from korml.core import make_position, Span
+    from korml.core import Span, make_position
 
     span = Span(
         start=make_position(line=1, column=3, offset=2),

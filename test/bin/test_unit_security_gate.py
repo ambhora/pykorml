@@ -64,11 +64,12 @@ def test_exit_status_follows_the_blocking_findings(
 
 
 @pytest.mark.parametrize(
-    "missing", [
+    "missing",
+    [
         "gl-secret-detection-report.json",
         "gl-sast-report.json",
         "gl-iac-sast-report.json",
-    ]
+    ],
 )
 def test_missing_required_report_fails(tmp_path: _pathlib.Path, missing: str) -> None:
     for filename in (

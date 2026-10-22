@@ -478,12 +478,15 @@ def test_flow_rejects_missing_entries(source: str, version: int) -> None:
     assert exc.value.span is not None
 
 
-@pytest.mark.parametrize("source, expected", [
-    ("[a,]", [["a"]]),
-    ("{a: b,}", [{"a": "b"}]),
-    ("[]", [[]]),
-    ("{}", [{}]),
-    ("[a, [b,],]", [["a", ["b"]]]),
-])
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ("[a,]", [["a"]]),
+        ("{a: b,}", [{"a": "b"}]),
+        ("[]", [[]]),
+        ("{}", [{}]),
+        ("[a, [b,],]", [["a", ["b"]]]),
+    ],
+)
 def test_flow_accepts_empty_collection_and_trailing_comma(source: str, expected: list) -> None:
     assert korml.loads(source).to_builtin() == expected

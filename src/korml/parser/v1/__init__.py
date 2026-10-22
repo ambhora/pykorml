@@ -4,10 +4,9 @@
 
 import collections.abc
 import dataclasses
-
-import korml._limits
 import enum
 
+import korml._limits
 import korml.error
 import korml.lexer.v1
 import korml.model
@@ -844,7 +843,8 @@ def _parse_flow_sequence(
     )
 
     element_array = _split_flow_item_token_arrays(
-        concrete_token_array[start_index + 1 : end_index], source_name=source_name,
+        concrete_token_array[start_index + 1 : end_index],
+        source_name=source_name,
     )
 
     value_array = [
@@ -915,7 +915,8 @@ def _parse_flow_mapping(
     )
 
     for entry_token_array in _split_flow_item_token_arrays(
-        concrete_token_array[start_index + 1 : end_index], source_name=source_name,
+        concrete_token_array[start_index + 1 : end_index],
+        source_name=source_name,
     ):
         colon_index = _find_top_level_flow_colon_index(entry_token_array)
 

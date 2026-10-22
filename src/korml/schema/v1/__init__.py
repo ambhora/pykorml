@@ -339,7 +339,9 @@ def _compile_optional_integer(
     try:
         return int(value)
     except ValueError as exc:
-        raise SchemaError(f"{_format_path(path)} has an integer value too large to convert") from exc
+        raise SchemaError(
+            f"{_format_path(path)} has an integer value too large to convert"
+        ) from exc
 
 
 def _check_reference_exists(
