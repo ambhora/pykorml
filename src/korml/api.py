@@ -37,6 +37,7 @@ def loads(
         filename=filename,
         input_text=input_text.removeprefix("\ufeff"),
         debug=debug,
+        max_tokens=max_tokens,
     )
 
     if file.version is korml.model.Version.v0:

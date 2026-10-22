@@ -11,6 +11,7 @@ rejects stream-level constructs such as version directives and document markers.
 
 import re
 
+import korml._limits
 import korml.core
 import korml.error
 import korml.lexer.v1.file as v1_file
@@ -22,7 +23,13 @@ __all__ = ["lex", "unlex"]
 _VERSION_DIRECTIVE_PATTERN = re.compile(r"%!korml\s+version\s+\d+\.\d+(?=\s*(#|$))")
 
 
-def lex(filename: str, input_text: str, debug: bool = False) -> lexer_v0.File:
+def lex(
+    filename: str,
+    input_text: str,
+    debug: bool = False,
+    *,
+    max_tokens: int | None = None,
+) -> lexer_v0.File:
     """Tokenize a complete KORML v0 source string."""
     lexer_state = v1_file.LexerState(
         mode=v1_file.LexerMode.VALUE_START,
@@ -38,6 +45,7 @@ def lex(filename: str, input_text: str, debug: bool = False) -> lexer_v0.File:
     token_array: list[lexer_v0.Token] = []
 
     while lexer_state.position.offset < len(input_text):
+        korml._limits.check_token_count(len(token_array), max_tokens=max_tokens, filename=filename)
         char = input_text[lexer_state.position.offset]
 
         if char in "\r\n":

@@ -45,6 +45,7 @@ def lex(
     *,
     version: korml.model.Version | None = None,
     debug: bool = False,
+    max_tokens: int | None = None,
 ) -> File:
     """Tokenize a complete KORML source string using the detected or requested version."""
     _reject_byte_order_mark(filename, input_text)
@@ -53,10 +54,14 @@ def lex(
         version = detect_version(input_text)
 
     if version is korml.model.Version.v0:
-        return lexer_v0_file.lex(filename=filename, input_text=input_text, debug=debug)
+        return lexer_v0_file.lex(
+            filename=filename, input_text=input_text, debug=debug, max_tokens=max_tokens
+        )
 
     if version is korml.model.Version.v1:
-        return lexer_v1_file.lex(filename=filename, input_text=input_text, debug=debug)
+        return lexer_v1_file.lex(
+            filename=filename, input_text=input_text, debug=debug, max_tokens=max_tokens
+        )
 
     raise ValueError(f"unsupported korml version: {version.value!r}")
 

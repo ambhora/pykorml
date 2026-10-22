@@ -49,14 +49,8 @@ def run(args: argparse.Namespace) -> None:
     file = korml.lexer.file.lex(
         filename=filename,
         input_text=input_text,
+        max_tokens=korml._limits.MAX_TOKENS,
     )
-
-    if len(file.token_array) > korml._limits.MAX_TOKENS:
-        raise korml.error.CompilerError(
-            message=f"token count exceeds {korml._limits.MAX_TOKENS}",
-            source_name=filename,
-            code="TOO_MANY_TOKENS",
-        )
 
     if args.output_format == "json":
         text = json.dumps([token.to_dict() for token in file.token_array], indent=2) + "\n"

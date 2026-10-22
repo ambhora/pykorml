@@ -123,3 +123,17 @@ def test_control_characters_in_source_line_keep_caret_aligned() -> None:
     assert lines[3] == r"1 | a\x1bX"
     assert lines[4] == "  | " + " " * 5 + "^"
     assert error.structured()["source_line"] == "a\x1bX"
+
+
+def test_lexer_stops_at_the_token_limit() -> None:
+    import korml.lexer.file
+
+    with pytest.raises(korml.error.CompilerError, match="token count exceeds 10") as exc_info:
+        korml.lexer.file.lex("<test>", "a\n" * 1000, max_tokens=10)
+
+    assert exc_info.value.code() == "TOO_MANY_TOKENS"
+
+
+def test_loads_applies_the_token_limit_while_lexing() -> None:
+    with pytest.raises(korml.error.CompilerError, match="token count exceeds 100"):
+        korml.loads("a\n" * 10_000, max_tokens=100)

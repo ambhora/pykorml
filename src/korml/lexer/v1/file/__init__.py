@@ -34,6 +34,7 @@ import enum
 import re
 import sys
 
+import korml._limits
 import korml.core
 import korml.lexer
 import korml.lexer.v1
@@ -381,7 +382,13 @@ def _lex_document_end(
     return token, new_state
 
 
-def lex(filename: str, input_text: str, debug=False) -> korml.lexer.v1.File:
+def lex(
+    filename: str,
+    input_text: str,
+    debug=False,
+    *,
+    max_tokens: int | None = None,
+) -> korml.lexer.v1.File:
     lexer_state = LexerState(
         mode=LexerMode.VERSION_HEADER,
         position=korml.core.Position(1, 1, 0),
@@ -396,6 +403,7 @@ def lex(filename: str, input_text: str, debug=False) -> korml.lexer.v1.File:
     token_array: list[korml.lexer.v1.Token] = []
 
     while lexer_state.position.offset < len(input_text):
+        korml._limits.check_token_count(len(token_array), max_tokens=max_tokens, filename=filename)
         char = input_text[lexer_state.position.offset]
 
         _debug_lexer(lexer_state, "dispatch")
