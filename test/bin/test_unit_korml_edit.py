@@ -85,3 +85,12 @@ def test_values_of_another_stream_are_rejected() -> None:
 
     with pytest.raises(ValueError, match="not a value of this stream"):
         korml.edit(stream=stream, replacements=[(other[0]["url"], "x")])
+
+
+def test_stream_loaded_without_limits_can_be_edited() -> None:
+    source = "".join(f"k{i}: v{i}\n" for i in range(40_000))
+    stream = korml.loads(source, max_tokens=None, max_parse_work=None)
+
+    result = korml.edit(stream=stream, replacements=[(stream[0]["k1"], "x")])
+
+    assert result == source.replace("k1: v1\n", 'k1: "x"\n', 1)

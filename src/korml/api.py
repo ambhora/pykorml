@@ -228,7 +228,17 @@ def edit(
     piece_array.extend(token.value for token in token_array[cursor:])
     source = "".join(piece_array)
 
-    if loads(source, filename=stream.filename).to_builtin() != expected:
+    # The stream was accepted under its caller's limits when it was loaded,
+    # so the check reads the edited source without limits; with the default
+    # limits, a stream loaded with larger ones could never be edited.
+    reread = loads(
+        source,
+        filename=stream.filename,
+        max_input_bytes=None,
+        max_tokens=None,
+        max_parse_work=None,
+    )
+    if reread.to_builtin() != expected:
         raise korml.error.BugError(
             message="edited source does not read back as the edited values",
             location="korml.api.edit",
