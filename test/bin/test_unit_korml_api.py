@@ -130,3 +130,13 @@ def test_dump_failed_replace_keeps_old_file_and_cleans_temp(
 
     assert destination.read_text(encoding="utf-8") == "unchanged"
     assert sorted(path.name for path in tmp_path.iterdir()) == ["output.korml"]
+
+
+def test_load_of_a_file_that_is_not_utf8_is_a_korml_error(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "bad.korml"
+    path.write_bytes(b"a: caf\xe9\n")
+
+    with pytest.raises(korml.error.CompilerError, match="not valid UTF-8 at byte 6") as exc_info:
+        korml.load(path)
+
+    assert exc_info.value.code() == "INVALID_ENCODING"

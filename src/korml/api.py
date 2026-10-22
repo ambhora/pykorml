@@ -66,8 +66,17 @@ def load(
             source_name=str(path),
             code="INPUT_TOO_LARGE",
         )
+    try:
+        input_text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise korml.error.CompilerError(
+            message=f"input is not valid UTF-8 at byte {error.start}",
+            source_name=str(path),
+            code="INVALID_ENCODING",
+        ) from error
+
     return loads(
-        data.decode("utf-8"),
+        input_text,
         filename=str(path),
         debug=debug,
         max_input_bytes=max_input_bytes,
