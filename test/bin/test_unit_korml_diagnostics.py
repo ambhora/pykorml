@@ -137,3 +137,24 @@ def test_lexer_stops_at_the_token_limit() -> None:
 def test_loads_applies_the_token_limit_while_lexing() -> None:
     with pytest.raises(korml.error.CompilerError, match="token count exceeds 100"):
         korml.loads("a\n" * 10_000, max_tokens=100)
+
+
+def test_messages_keep_their_line_breaks() -> None:
+    error = korml.error.BugError(message="broken", location="here", details="a\nb")
+
+    assert "\n\nDetails:\na\nb" in str(error)
+
+
+def test_source_text_in_messages_is_escaped() -> None:
+    with pytest.raises(korml.ParseError) as exc_info:
+        korml.loads('a: "\\\x1b"\n')
+
+    assert "\x1b" not in str(exc_info.value)
+    assert "\\x1b" in str(exc_info.value)
+
+
+def test_schema_messages_escape_controls_and_keep_one_line_per_error() -> None:
+    error = korml.schema.SchemaError("types.a\x1bb must be a mapping")
+
+    assert "\x1b" not in str(error)
+    assert "types.a\\x1bb must be a mapping" in str(error)

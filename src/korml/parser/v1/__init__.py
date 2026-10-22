@@ -280,12 +280,14 @@ def _parse_double_quoted_scalar_value(source: str) -> str:
         digits = content[index : index + length] if length is not None else ""
 
         if length is None or len(digits) != length or not _is_hex(digits):
-            raise ValueError(f"invalid escape '\\{escaped_char}' in double-quoted scalar")
+            escape = "\\" + escaped_char
+            raise ValueError(f"invalid escape {escape!r} in double-quoted scalar")
 
         code_point = int(digits, 16)
 
         if 0xD800 <= code_point <= 0xDFFF or code_point > 0x10FFFF:
-            raise ValueError(f"escape '\\{escaped_char}{digits}' is not a Unicode scalar value")
+            escape = "\\" + escaped_char + digits
+            raise ValueError(f"escape {escape!r} is not a Unicode scalar value")
 
         output.append(chr(code_point))
         index += length

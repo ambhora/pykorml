@@ -65,7 +65,12 @@ class SchemaError(korml.error.KormlError, ValueError):
     """
 
     def __init__(self, message: str) -> None:
-        super().__init__(message=message, code=ErrorCode.INVALID_SCHEMA.value)
+        # Schema messages are one line and interpolate names from the schema
+        # document, which may hold control characters.
+        super().__init__(
+            message=korml.error.escape_controls(message),
+            code=ErrorCode.INVALID_SCHEMA.value,
+        )
 
 
 class ConstructionError(korml.error.KormlError, ValueError):
@@ -79,7 +84,11 @@ class ConstructionError(korml.error.KormlError, ValueError):
         """Store validation errors and format them as exception text."""
         self.error_array = tuple(error_array)
         super().__init__(
-            message="\n".join(error.message for error in self.error_array),
+            # One line per error; each line escaped on its own, since the
+            # messages interpolate names from the schema document.
+            message="\n".join(
+                korml.error.escape_controls(error.message) for error in self.error_array
+            ),
             code=ErrorCode.CONSTRUCTION_FAILED.value,
         )
 
