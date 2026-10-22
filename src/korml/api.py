@@ -104,8 +104,20 @@ def dump(
     filename: str | pathlib.Path,
     *,
     version: korml.model.Version = korml.model.Version.v1,
+    dangerous_allow_writing_to_symlink: bool = False,
 ) -> None:
-    korml._atomic.write_bytes(filename, dumps(value, version=version).encode("utf-8"))
+    """
+    Write value as Korml to the file filename, replacing it atomically.
+
+    A symbolic link at filename is refused with UnsafeOutputError unless
+    dangerous_allow_writing_to_symlink is true; then the file it points to
+    is replaced and the link is kept.
+    """
+    korml._atomic.write_bytes(
+        filename,
+        dumps(value, version=version).encode("utf-8"),
+        dangerous_allow_writing_to_symlink=dangerous_allow_writing_to_symlink,
+    )
 
 
 def _make_stream(

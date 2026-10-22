@@ -114,8 +114,10 @@ def test_lex_can_atomically_replace_its_own_input(
     assert '"value": "key"' in path.read_text(encoding="utf-8")
 
 
-def test_lex_replaces_output_symlink_not_its_target(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+def test_lex_refuses_an_output_symlink(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     source = tmp_path / "source.korml"
     source.write_text("key: value\n", encoding="utf-8")
@@ -124,10 +126,26 @@ def test_lex_replaces_output_symlink_not_its_target(
     output = tmp_path / "tokens.json"
     output.symlink_to(victim)
 
-    assert _run(monkeypatch, "lex", "--input", str(source), "--output", str(output)) == 0
+    assert _run(monkeypatch, "lex", "--input", str(source), "--output", str(output)) == 1
     assert victim.read_text(encoding="utf-8") == "untouched"
-    assert not output.is_symlink()
-    assert '"value": "key"' in output.read_text(encoding="utf-8")
+    assert output.is_symlink()
+    assert "--dangerous-allow-writing-to-symlink" in capsys.readouterr().err
+
+
+def test_lex_writes_the_symlink_target_when_allowed(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.korml"
+    source.write_text("key: value\n", encoding="utf-8")
+    target = tmp_path / "target.json"
+    target.write_text("old", encoding="utf-8")
+    output = tmp_path / "tokens.json"
+    output.symlink_to(target)
+
+    argv = ["lex", "--input", str(source), "--output", str(output)]
+    assert _run(monkeypatch, *argv, "--dangerous-allow-writing-to-symlink") == 0
+    assert output.is_symlink()
+    assert '"value": "key"' in target.read_text(encoding="utf-8")
 
 
 def test_lex_failure_does_not_modify_existing_output(

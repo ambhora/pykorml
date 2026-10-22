@@ -63,6 +63,13 @@ text = korml.dumps({"name": "example"}, version=korml.Version.v0)
 assert text == '"name": "example"\n'
 ```
 
+`dump` replaces the file atomically. It refuses to write through a symbolic
+link at the output path, since a link planted there would redirect the
+output to any file you can write; pass
+`dangerous_allow_writing_to_symlink=True`, or
+`--dangerous-allow-writing-to-symlink` to `korml lex`, to replace the file
+the link points to instead.
+
 ## Editing without reformatting
 
 `dumps` writes a new document. To change some values of an existing source

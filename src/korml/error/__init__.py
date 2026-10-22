@@ -45,6 +45,7 @@ __all__ = [
     "LexError",
     "IndentationError",
     "ParseError",
+    "UnsafeOutputError",
 ]
 
 
@@ -203,6 +204,25 @@ class BugError(KormlError):
             text += f"\n\nSource line:\n{escape_controls(self.source_line)}"
 
         return text
+
+
+class UnsafeOutputError(KormlError):
+    """
+    Error raised instead of writing an output that would be unsafe to write.
+
+    korml refuses to write through a symbolic link at the output path unless
+    the caller asks for it, since a link planted there would redirect the
+    output to any file the user can write.
+    """
+
+    def __init__(self, *, message: str, path: str):
+        """Initialize the error for the output at path."""
+        self._path = path
+        super().__init__(message=message, code="UNSAFE_OUTPUT")
+
+    def describe(self, *, quote_source: bool) -> str:
+        """Return the message, with the output path escaped."""
+        return f"{self.__class__.__name__}: {self._message}: {escape_controls(self._path)}"
 
 
 class CompilerError(KormlError):

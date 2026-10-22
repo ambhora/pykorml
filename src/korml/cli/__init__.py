@@ -27,6 +27,11 @@ def first_level_lexer_parser(sp: argparse.ArgumentParser) -> None:
         help="Output file; standard output if omitted",
     )
     sp.add_argument(
+        "--dangerous-allow-writing-to-symlink",
+        action="store_true",
+        help=("If --output is a symbolic link, replace the file it points to instead of refusing"),
+    )
+    sp.add_argument(
         "--output-format",
         required=False,
         choices=["json", "text"],
@@ -64,6 +69,12 @@ def main() -> int:
         return handle_uncaught_exception(exc)
     except korml.error.CompilerError as exc:
         print(str(exc), file=sys.stderr)
+        return 1
+    except korml.error.UnsafeOutputError as exc:
+        print(str(exc), file=sys.stderr)
+        print(
+            "  = pass --dangerous-allow-writing-to-symlink to write to its target", file=sys.stderr
+        )
         return 1
     except OSError as exc:
         filename = korml.error.escape_controls(str(exc.filename))

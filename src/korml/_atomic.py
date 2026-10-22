@@ -10,16 +10,39 @@ import secrets
 import stat
 import tempfile
 
+import korml.error
 
-def write_bytes(path: str | pathlib.Path, data: bytes) -> None:
+
+def write_bytes(
+    path: str | pathlib.Path,
+    data: bytes,
+    *,
+    dangerous_allow_writing_to_symlink: bool,
+) -> None:
     """Write a complete new file and atomically replace *path*.
 
+    A symbolic link at *path* is refused with UnsafeOutputError: a link
+    planted there would redirect the output to any file the user can write.
+    With dangerous_allow_writing_to_symlink, the file the link points to is
+    replaced instead, and the link is kept. Symlinked parent directories are
+    followed either way; whoever controls a parent directory controls the
+    path anyway.
+
     On POSIX, directory-relative operations pin the parent directory during
-    the write and rename. A symlinked parent directory is supported, but a
-    final-component output symlink is replaced rather than followed. On other
-    platforms, atomic replace is used without directory-relative operations.
+    the write and rename, so a link appearing at the final component after
+    the check is refused too. On other platforms, atomic replace is used
+    without directory-relative operations.
     """
     destination = pathlib.Path(path)
+
+    if destination.is_symlink():
+        if not dangerous_allow_writing_to_symlink:
+            raise korml.error.UnsafeOutputError(
+                message="refusing to write through a symbolic link",
+                path=str(destination),
+            )
+        destination = pathlib.Path(os.path.realpath(destination))
+
     if os.name == "posix":
         _write_posix(destination, data)
     else:
@@ -37,6 +60,12 @@ def _write_posix(destination: pathlib.Path, data: bytes) -> None:
                     previous = os.stat(destination.name, dir_fd=parent_fd, follow_symlinks=False)
                 except FileNotFoundError:
                     previous = None
+                # A link that appeared after the check in write_bytes.
+                if previous is not None and stat.S_ISLNK(previous.st_mode):
+                    raise korml.error.UnsafeOutputError(
+                        message="output became a symbolic link while writing",
+                        path=str(destination),
+                    )
                 if previous is not None and stat.S_ISREG(previous.st_mode):
                     os.fchmod(stream.fileno(), stat.S_IMODE(previous.st_mode))
                 stream.write(data)

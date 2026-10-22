@@ -48,17 +48,29 @@ def test_dumps_rejects_non_string_mapping_key() -> None:
         korml.dumps({1: "x"})
 
 
-def test_dump_replaces_symlink_without_overwriting_target(tmp_path: pathlib.Path) -> None:
+def test_dump_refuses_to_write_through_a_symlink(tmp_path: pathlib.Path) -> None:
     victim = tmp_path / "victim.korml"
     victim.write_text("secret", encoding="utf-8")
     destination = tmp_path / "output.korml"
     destination.symlink_to(victim)
 
-    korml.dump({"a": "b"}, destination)
+    with pytest.raises(korml.error.UnsafeOutputError, match="symbolic link"):
+        korml.dump({"key": "value"}, destination)
 
+    assert destination.is_symlink()
     assert victim.read_text(encoding="utf-8") == "secret"
-    assert not destination.is_symlink()
-    assert korml.load(destination).to_builtin() == [{"a": "b"}]
+
+
+def test_dump_writes_the_symlink_target_when_allowed(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "target.korml"
+    target.write_text("old", encoding="utf-8")
+    link = tmp_path / "link.korml"
+    link.symlink_to(target)
+
+    korml.dump({"key": "value"}, link, dangerous_allow_writing_to_symlink=True)
+
+    assert link.is_symlink()
+    assert korml.load(target).to_builtin() == [{"key": "value"}]
 
 
 def test_dump_preserves_existing_mode(tmp_path: pathlib.Path) -> None:

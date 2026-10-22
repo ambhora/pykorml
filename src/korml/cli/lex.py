@@ -61,4 +61,8 @@ def run(args: argparse.Namespace) -> None:
         sys.stdout.buffer.write(text.encode("utf-8"))
         sys.stdout.flush()
     else:
-        korml._atomic.write_bytes(args.output, text.encode("utf-8"))
+        korml._atomic.write_bytes(
+            args.output,
+            text.encode("utf-8"),
+            dangerous_allow_writing_to_symlink=args.dangerous_allow_writing_to_symlink,
+        )
