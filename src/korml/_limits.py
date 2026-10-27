@@ -8,6 +8,12 @@ MAX_INPUT_BYTES = 8 * 1024 * 1024
 MAX_TOKENS = 100_000
 MAX_PARSE_WORK = 1_000_000
 
+# The deepest nesting of collections that korml reads or writes. The parser,
+# the emitter and the schema code recurse once per level, and the limit keeps
+# them well inside Python's recursion limit, so deep nesting is a korml error
+# rather than a RecursionError. The rules require at least 64 levels.
+MAX_NESTING_DEPTH = 128
+
 
 def check_input_size(text: str, *, max_input_bytes: int | None, filename: str) -> None:
     import korml.error

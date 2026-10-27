@@ -266,7 +266,7 @@ def test_parse_value_dispatches_to_mapping() -> None:
 
 
 def test_parse_mapping_parses_sequence_value() -> None:
-    token_array = _lex_body("items:\n- first\n- second")
+    token_array = _lex_body("items:\n  - first\n  - second")
 
     mapping = korml.parser.v1._parse_mapping(
         token_array,
@@ -468,7 +468,10 @@ def test_parse_flow_mapping_rejects_entry_without_colon() -> None:
     assert error_info.value.code() == str(korml.parser.v1.ErrorCode.EXPECTED_MAPPING_COLON)
 
 
-@pytest.mark.parametrize("source", ["[a,,b]", "[,a]", "[,]", "{a: 1,, b: 2}", "{,a: b}", "{,}"])
+@pytest.mark.parametrize(
+    "source",
+    ["[a,,b]", "[,a]", "[,]", "{a: 1,, b: 2}", "{,a: b}", "{,}", "[a,]", "{a: b,}", "[a, [b,],]"],
+)
 @pytest.mark.parametrize("version", [0, 1])
 def test_flow_rejects_missing_entries(source: str, version: int) -> None:
     text = f"%!korml version 1.0\n---\n{source}\n...\n" if version else source
@@ -481,12 +484,10 @@ def test_flow_rejects_missing_entries(source: str, version: int) -> None:
 @pytest.mark.parametrize(
     "source, expected",
     [
-        ("[a,]", [["a"]]),
-        ("{a: b,}", [{"a": "b"}]),
         ("[]", [[]]),
         ("{}", [{}]),
-        ("[a, [b,],]", [["a", ["b"]]]),
+        ("[a, [b], {}]", [["a", ["b"], {}]]),
     ],
 )
-def test_flow_accepts_empty_collection_and_trailing_comma(source: str, expected: list) -> None:
+def test_flow_accepts_empty_collections(source: str, expected: list) -> None:
     assert korml.loads(source).to_builtin() == expected

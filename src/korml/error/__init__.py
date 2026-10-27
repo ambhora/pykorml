@@ -27,6 +27,8 @@ The intended hierarchy is:
 
     KormlError
     ├── BugError
+    ├── EmitError
+    ├── UnsafeOutputError
     └── CompilerError
         ├── LexError
         │   └── IndentationError
@@ -46,6 +48,7 @@ __all__ = [
     "IndentationError",
     "ParseError",
     "UnsafeOutputError",
+    "EmitError",
 ]
 
 
@@ -204,6 +207,21 @@ class BugError(KormlError):
             text += f"\n\nSource line:\n{escape_controls(self.source_line)}"
 
         return text
+
+
+class EmitError(KormlError, ValueError):
+    """
+    Error raised when a value cannot be written as conforming Korml source.
+
+    Examples are a string holding a lone surrogate, which no Korml source can
+    contain, a key longer than a key may be, and values nested too deeply or
+    containing themselves. It is a ValueError too, since the problem is the
+    value handed to the emitter.
+    """
+
+    def __init__(self, *, message: str, code: str):
+        """Initialize the error with a message and a machine-readable code."""
+        super().__init__(message=message, code=code)
 
 
 class UnsafeOutputError(KormlError):

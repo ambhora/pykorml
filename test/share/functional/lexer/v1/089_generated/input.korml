@@ -1,16 +1,56 @@
 %!korml version 1.0
 ---
-entity_0_0: {key_0_0: [key_0_0: "folded line one 0\nfolded line two 0\n"]}
-entity_0_1: value_1
+entity_0_0:  # lexer should preserve this
+  key_0_0:
+    key_0_0: >
+      folded line one 0
 
-# lexer should preserve this
-entity_0_2: >
-  folded line one 2
+      folded line two 0
+    key_0_1: ["double value 1000"]
+  key_0_1: value_1
+# generated comment
+entity_0_1:
+  key_1_0: {key_1000_0: 'single value 1000000', key_1000_1: {key_1000001_0: "folded line one 1000001000\nfolded line two 1000001000\n", key_1000001_1: "double value 1000001001"}}
+  key_1_1: |
+    literal line one 1001
+    literal line two 1001
 
-  folded line two 2  # fuzz comment
-entity_0_3: value_3
-entity_0_4: >
-  folded line one 4
+  key_1_2:
+    key_1002_0: "double value 1002000"  # generated comment
+    key_1002_1: >
+      folded line one 1002001
 
-  folded line two 4
+      folded line two 1002001
+
+    # fuzz comment
+    key_1002_2:  # fuzz comment
+      key_1002002_0: >
+        folded line one 1002002000
+
+        folded line two 1002002000
+      key_1002002_1: |
+        literal line one 1002002001
+        literal line two 1002002001
+      key_1002002_2: 'single value 1002002002'  # lexer should preserve this
+entity_0_2:
+  - |
+    literal line one 2000
+    literal line two 2000
+  - {key_2001_0: {key_2001000_0: 'single value 2001000000', key_2001000_1: "folded line one 2001000001\nfolded line two 2001000001\n", key_2001000_2: 'single value 2001000002'}}
+
+  - >
+    folded line one 2002
+
+    folded line two 2002
+# roundtrip comment
+entity_0_3: >
+  folded line one 3
+
+  folded line two 3
+entity_0_4: {key_4_0: {key_4000_0: 'single value 4000000', key_4000_1: {key_4000001_0: value_4000001000, key_4000001_1: 'single value 4000001001', key_4000001_2: "double value 4000001002"}, key_4000_2: "literal line one 4000002\nliteral line two 4000002\n"}, key_4_1: 'single value 4001', key_4_2: {key_4002_0: "double value 4002000"}}
+entity_0_5: {key_5_0: {key_5000_0: value_5000000, key_5000_1: value_5000001}}
+entity_0_6: [[{key_6000000_0: "double value 6000000000"}]]
+entity_0_7: |
+  literal line one 7
+  literal line two 7
 ...

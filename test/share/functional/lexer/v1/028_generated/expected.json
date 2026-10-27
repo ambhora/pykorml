@@ -114,9 +114,9 @@
   {
     "span": {
       "end": {
-        "column": 29,
-        "line": 3,
-        "offset": 52
+        "column": 1,
+        "line": 6,
+        "offset": 80
       },
       "start": {
         "column": 13,
@@ -124,36 +124,20 @@
         "offset": 36
       }
     },
-    "type": "SQ_SCALAR",
-    "value": "'single value 0'"
-  },
-  {
-    "span": {
-      "end": {
-        "column": 1,
-        "line": 4,
-        "offset": 53
-      },
-      "start": {
-        "column": 29,
-        "line": 3,
-        "offset": 52
-      }
-    },
-    "type": "NEWLINE",
-    "value": "\n"
+    "type": "LITERAL_BLOCK_SCALAR",
+    "value": "|\n  literal line one 0\n  literal line two 0\n"
   },
   {
     "span": {
       "end": {
         "column": 11,
-        "line": 4,
-        "offset": 63
+        "line": 6,
+        "offset": 90
       },
       "start": {
         "column": 1,
-        "line": 4,
-        "offset": 53
+        "line": 6,
+        "offset": 80
       }
     },
     "type": "PLAIN_SCALAR",
@@ -163,13 +147,13 @@
     "span": {
       "end": {
         "column": 12,
-        "line": 4,
-        "offset": 64
+        "line": 6,
+        "offset": 91
       },
       "start": {
         "column": 11,
-        "line": 4,
-        "offset": 63
+        "line": 6,
+        "offset": 90
       }
     },
     "type": "COLON",
@@ -179,13 +163,13 @@
     "span": {
       "end": {
         "column": 13,
-        "line": 4,
-        "offset": 65
+        "line": 6,
+        "offset": 92
       },
       "start": {
         "column": 12,
-        "line": 4,
-        "offset": 64
+        "line": 6,
+        "offset": 91
       }
     },
     "type": "WHITESPACE",
@@ -195,29 +179,61 @@
     "span": {
       "end": {
         "column": 1,
-        "line": 7,
-        "offset": 109
+        "line": 10,
+        "offset": 137
       },
       "start": {
         "column": 13,
-        "line": 4,
-        "offset": 65
+        "line": 6,
+        "offset": 92
       }
     },
     "type": "LITERAL_BLOCK_SCALAR",
-    "value": "|\n  literal line one 1\n  literal line two 1\n"
+    "value": "|\n  literal line one 1\n  literal line two 1\n\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 20,
+        "line": 10,
+        "offset": 156
+      },
+      "start": {
+        "column": 1,
+        "line": 10,
+        "offset": 137
+      }
+    },
+    "type": "COMMENT",
+    "value": "# generated comment"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 11,
+        "offset": 157
+      },
+      "start": {
+        "column": 20,
+        "line": 10,
+        "offset": 156
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\n"
   },
   {
     "span": {
       "end": {
         "column": 11,
-        "line": 7,
-        "offset": 119
+        "line": 11,
+        "offset": 167
       },
       "start": {
         "column": 1,
-        "line": 7,
-        "offset": 109
+        "line": 11,
+        "offset": 157
       }
     },
     "type": "PLAIN_SCALAR",
@@ -227,13 +243,13 @@
     "span": {
       "end": {
         "column": 12,
-        "line": 7,
-        "offset": 120
+        "line": 11,
+        "offset": 168
       },
       "start": {
         "column": 11,
-        "line": 7,
-        "offset": 119
+        "line": 11,
+        "offset": 167
       }
     },
     "type": "COLON",
@@ -243,13 +259,13 @@
     "span": {
       "end": {
         "column": 13,
-        "line": 7,
-        "offset": 121
+        "line": 11,
+        "offset": 169
       },
       "start": {
         "column": 12,
-        "line": 7,
-        "offset": 120
+        "line": 11,
+        "offset": 168
       }
     },
     "type": "WHITESPACE",
@@ -258,30 +274,46 @@
   {
     "span": {
       "end": {
-        "column": 1,
-        "line": 12,
-        "offset": 165
+        "column": 20,
+        "line": 11,
+        "offset": 176
       },
       "start": {
         "column": 13,
-        "line": 7,
-        "offset": 121
+        "line": 11,
+        "offset": 169
       }
     },
-    "type": "FOLDED_BLOCK_SCALAR",
-    "value": ">\n  folded line one 2\n\n\n  folded line two 2\n"
+    "type": "PLAIN_SCALAR",
+    "value": "value_2"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 12,
+        "offset": 177
+      },
+      "start": {
+        "column": 20,
+        "line": 11,
+        "offset": 176
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\n"
   },
   {
     "span": {
       "end": {
         "column": 11,
         "line": 12,
-        "offset": 175
+        "offset": 187
       },
       "start": {
         "column": 1,
         "line": 12,
-        "offset": 165
+        "offset": 177
       }
     },
     "type": "PLAIN_SCALAR",
@@ -292,12 +324,12 @@
       "end": {
         "column": 12,
         "line": 12,
-        "offset": 176
+        "offset": 188
       },
       "start": {
         "column": 11,
         "line": 12,
-        "offset": 175
+        "offset": 187
       }
     },
     "type": "COLON",
@@ -308,12 +340,12 @@
       "end": {
         "column": 13,
         "line": 12,
-        "offset": 177
+        "offset": 189
       },
       "start": {
         "column": 12,
         "line": 12,
-        "offset": 176
+        "offset": 188
       }
     },
     "type": "WHITESPACE",
@@ -324,60 +356,28 @@
       "end": {
         "column": 29,
         "line": 12,
-        "offset": 193
+        "offset": 205
       },
       "start": {
         "column": 13,
         "line": 12,
-        "offset": 177
+        "offset": 189
       }
     },
-    "type": "SQ_SCALAR",
-    "value": "'single value 3'"
-  },
-  {
-    "span": {
-      "end": {
-        "column": 31,
-        "line": 12,
-        "offset": 195
-      },
-      "start": {
-        "column": 29,
-        "line": 12,
-        "offset": 193
-      }
-    },
-    "type": "WHITESPACE",
-    "value": "  "
-  },
-  {
-    "span": {
-      "end": {
-        "column": 45,
-        "line": 12,
-        "offset": 209
-      },
-      "start": {
-        "column": 31,
-        "line": 12,
-        "offset": 195
-      }
-    },
-    "type": "COMMENT",
-    "value": "# fuzz comment"
+    "type": "DQ_SCALAR",
+    "value": "\"double value 3\""
   },
   {
     "span": {
       "end": {
         "column": 1,
         "line": 13,
-        "offset": 210
+        "offset": 206
       },
       "start": {
-        "column": 45,
+        "column": 29,
         "line": 12,
-        "offset": 209
+        "offset": 205
       }
     },
     "type": "NEWLINE",
@@ -388,12 +388,12 @@
       "end": {
         "column": 11,
         "line": 13,
-        "offset": 220
+        "offset": 216
       },
       "start": {
         "column": 1,
         "line": 13,
-        "offset": 210
+        "offset": 206
       }
     },
     "type": "PLAIN_SCALAR",
@@ -404,12 +404,12 @@
       "end": {
         "column": 12,
         "line": 13,
-        "offset": 221
+        "offset": 217
       },
       "start": {
         "column": 11,
         "line": 13,
-        "offset": 220
+        "offset": 216
       }
     },
     "type": "COLON",
@@ -418,46 +418,14 @@
   {
     "span": {
       "end": {
-        "column": 1,
-        "line": 14,
-        "offset": 222
+        "column": 13,
+        "line": 13,
+        "offset": 218
       },
       "start": {
         "column": 12,
         "line": 13,
-        "offset": 221
-      }
-    },
-    "type": "NEWLINE",
-    "value": "\n"
-  },
-  {
-    "span": {
-      "end": {
-        "column": 2,
-        "line": 14,
-        "offset": 223
-      },
-      "start": {
-        "column": 1,
-        "line": 14,
-        "offset": 222
-      }
-    },
-    "type": "DASH_ITEM",
-    "value": "-"
-  },
-  {
-    "span": {
-      "end": {
-        "column": 3,
-        "line": 14,
-        "offset": 224
-      },
-      "start": {
-        "column": 2,
-        "line": 14,
-        "offset": 223
+        "offset": 217
       }
     },
     "type": "WHITESPACE",
@@ -466,46 +434,46 @@
   {
     "span": {
       "end": {
-        "column": 4,
-        "line": 14,
-        "offset": 225
+        "column": 1,
+        "line": 17,
+        "offset": 261
       },
       "start": {
-        "column": 3,
-        "line": 14,
-        "offset": 224
+        "column": 13,
+        "line": 13,
+        "offset": 218
       }
     },
-    "type": "FLOW_MAPPING_START",
-    "value": "{"
+    "type": "FOLDED_BLOCK_SCALAR",
+    "value": ">\n  folded line one 4\n\n  folded line two 4\n"
   },
   {
     "span": {
       "end": {
-        "column": 14,
-        "line": 14,
-        "offset": 235
+        "column": 11,
+        "line": 17,
+        "offset": 271
       },
       "start": {
-        "column": 4,
-        "line": 14,
-        "offset": 225
+        "column": 1,
+        "line": 17,
+        "offset": 261
       }
     },
     "type": "PLAIN_SCALAR",
-    "value": "key_4000_0"
+    "value": "entity_0_5"
   },
   {
     "span": {
       "end": {
-        "column": 15,
-        "line": 14,
-        "offset": 236
+        "column": 12,
+        "line": 17,
+        "offset": 272
       },
       "start": {
-        "column": 14,
-        "line": 14,
-        "offset": 235
+        "column": 11,
+        "line": 17,
+        "offset": 271
       }
     },
     "type": "COLON",
@@ -514,14 +482,174 @@
   {
     "span": {
       "end": {
-        "column": 16,
-        "line": 14,
-        "offset": 237
+        "column": 13,
+        "line": 17,
+        "offset": 273
       },
       "start": {
-        "column": 15,
-        "line": 14,
-        "offset": 236
+        "column": 12,
+        "line": 17,
+        "offset": 272
+      }
+    },
+    "type": "WHITESPACE",
+    "value": " "
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 20,
+        "offset": 317
+      },
+      "start": {
+        "column": 13,
+        "line": 17,
+        "offset": 273
+      }
+    },
+    "type": "LITERAL_BLOCK_SCALAR",
+    "value": "|\n  literal line one 5\n  literal line two 5\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 20,
+        "offset": 327
+      },
+      "start": {
+        "column": 1,
+        "line": 20,
+        "offset": 317
+      }
+    },
+    "type": "PLAIN_SCALAR",
+    "value": "entity_0_6"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 12,
+        "line": 20,
+        "offset": 328
+      },
+      "start": {
+        "column": 11,
+        "line": 20,
+        "offset": 327
+      }
+    },
+    "type": "COLON",
+    "value": ":"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 20,
+        "offset": 329
+      },
+      "start": {
+        "column": 12,
+        "line": 20,
+        "offset": 328
+      }
+    },
+    "type": "WHITESPACE",
+    "value": " "
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 23,
+        "offset": 373
+      },
+      "start": {
+        "column": 13,
+        "line": 20,
+        "offset": 329
+      }
+    },
+    "type": "LITERAL_BLOCK_SCALAR",
+    "value": "|\n  literal line one 6\n  literal line two 6\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 23,
+        "offset": 401
+      },
+      "start": {
+        "column": 1,
+        "line": 23,
+        "offset": 373
+      }
+    },
+    "type": "COMMENT",
+    "value": "# lexer should preserve this"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 24,
+        "offset": 402
+      },
+      "start": {
+        "column": 29,
+        "line": 23,
+        "offset": 401
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 24,
+        "offset": 412
+      },
+      "start": {
+        "column": 1,
+        "line": 24,
+        "offset": 402
+      }
+    },
+    "type": "PLAIN_SCALAR",
+    "value": "entity_0_7"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 12,
+        "line": 24,
+        "offset": 413
+      },
+      "start": {
+        "column": 11,
+        "line": 24,
+        "offset": 412
+      }
+    },
+    "type": "COLON",
+    "value": ":"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 24,
+        "offset": 414
+      },
+      "start": {
+        "column": 12,
+        "line": 24,
+        "offset": 413
       }
     },
     "type": "WHITESPACE",
@@ -531,77 +659,29 @@
     "span": {
       "end": {
         "column": 29,
-        "line": 14,
-        "offset": 250
+        "line": 24,
+        "offset": 430
       },
       "start": {
-        "column": 16,
-        "line": 14,
-        "offset": 237
+        "column": 13,
+        "line": 24,
+        "offset": 414
       }
     },
-    "type": "PLAIN_SCALAR",
-    "value": "value_4000000"
-  },
-  {
-    "span": {
-      "end": {
-        "column": 30,
-        "line": 14,
-        "offset": 251
-      },
-      "start": {
-        "column": 29,
-        "line": 14,
-        "offset": 250
-      }
-    },
-    "type": "FLOW_MAPPING_END",
-    "value": "}"
-  },
-  {
-    "span": {
-      "end": {
-        "column": 32,
-        "line": 14,
-        "offset": 253
-      },
-      "start": {
-        "column": 30,
-        "line": 14,
-        "offset": 251
-      }
-    },
-    "type": "WHITESPACE",
-    "value": "  "
-  },
-  {
-    "span": {
-      "end": {
-        "column": 51,
-        "line": 14,
-        "offset": 272
-      },
-      "start": {
-        "column": 32,
-        "line": 14,
-        "offset": 253
-      }
-    },
-    "type": "COMMENT",
-    "value": "# generated comment"
+    "type": "DQ_SCALAR",
+    "value": "\"double value 7\""
   },
   {
     "span": {
       "end": {
         "column": 1,
-        "line": 15,
-        "offset": 273
+        "line": 25,
+        "offset": 431
       },
       "start": {
-        "column": 51,
-        "line": 14,
-        "offset": 272
+        "column": 29,
+        "line": 24,
+        "offset": 430
       }
     },
     "type": "NEWLINE",
@@ -611,13 +691,13 @@
     "span": {
       "end": {
         "column": 4,
-        "line": 15,
-        "offset": 276
+        "line": 25,
+        "offset": 434
       },
       "start": {
         "column": 1,
-        "line": 15,
-        "offset": 273
+        "line": 25,
+        "offset": 431
       }
     },
     "type": "DOC_END",
@@ -627,13 +707,13 @@
     "span": {
       "end": {
         "column": 1,
-        "line": 16,
-        "offset": 277
+        "line": 26,
+        "offset": 435
       },
       "start": {
         "column": 4,
-        "line": 15,
-        "offset": 276
+        "line": 25,
+        "offset": 434
       }
     },
     "type": "NEWLINE",

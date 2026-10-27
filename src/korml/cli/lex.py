@@ -38,8 +38,8 @@ def run(args: argparse.Namespace) -> None:
         )
 
     try:
-        # utf-8-sig drops a byte-order mark, as loading does.
-        input_text = data.decode("utf-8-sig")
+        # A byte-order mark is kept, so the lexer rejects it, as loading does.
+        input_text = data.decode("utf-8")
     except UnicodeDecodeError as error:
         raise korml.error.CompilerError(
             message=f"input is not valid UTF-8 at byte {error.start}",

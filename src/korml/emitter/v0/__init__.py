@@ -31,4 +31,4 @@ def emit(stream: korml.model.Stream[object]) -> str:
     if not stream.document_array:
         return ""
 
-    return "\n".join(korml.emitter.v1._emit_value(stream.document_array[0], indent=0)) + "\n"
+    return "\n".join(korml.emitter.v1._emit_root(stream.document_array[0])) + "\n"

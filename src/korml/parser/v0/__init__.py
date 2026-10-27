@@ -33,16 +33,18 @@ def parse(
     budget = parser_v1._ParseBudget(remaining=max_work)
     document_array: list[korml.model.Value[lexer_v0.Token]] = []
 
-    if parser_v1._first_non_trivia(file.token_array) is not None:
-        document_array.append(
-            parser_v1._parse_value(
-                file.token_array,
-                version=file.version,
-                source_name=file.filename,
-                depth=0,
-                budget=budget,
-            )
-        )
+    # An empty or blank-only source is an empty document; the stream model
+    # has no way to hold a document without a root, so it has no documents.
+    root = parser_v1._parse_body(
+        file.token_array,
+        version=file.version,
+        source_name=file.filename,
+        depth=0,
+        budget=budget,
+    )
+
+    if root is not None:
+        document_array.append(root)
 
     return korml.model.Stream[lexer_v0.Token](
         document_array=document_array,

@@ -1,26 +1,18 @@
 %!korml version 1.0
 ---
-entity_0_0: {key_0_0: "literal line one 0\nliteral line two 0\n"}  # fuzz comment
-
-entity_0_1:
+entity_0_0: 'single value 0'  # fuzz comment
 # fuzz comment
-- - value_1000000
-
-  - {key_1000001_0: "literal line one 1000001000\nliteral line two 1000001000\n"}
-
-  - >
-    folded line one 1000002
-
-
-    folded line two 1000002
-- "double value 1001"
-- value_1002
-entity_0_2: [{key_2000_0: {key_2000000_0: value_2000000000, key_2000000_1: "double value 2000000001", key_2000000_2: "double value 2000000002"}, key_2000_1: ["literal line one 2000001000\nliteral line two 2000001000\n", 'single value 2000001001'], key_2000_2: value_2000002}, [{key_2001000_0: "double value 2001000000", key_2001000_1: 'single value 2001000001'}], 'single value 2002']
-entity_0_3: |
-  literal line one 3
-  literal line two 3
-
-entity_0_4: |
-  literal line one 4
-  literal line two 4
+entity_0_1: {key_1_0: {key_1000_0: [value_1000000000, "double value 1000000001"], key_1000_1: "literal line one 1000001\nliteral line two 1000001\n"}, key_1_1: value_1001, key_1_2: [{key_1002000_0: "folded line one 1002000000\nfolded line two 1002000000\n", key_1002000_1: "literal line one 1002000001\nliteral line two 1002000001\n", key_1002000_2: "folded line one 1002000002\nfolded line two 1002000002\n"}]}
+# generated comment
+entity_0_2: {key_2_0: {key_2000_0: {key_2000000_0: "literal line one 2000000000\nliteral line two 2000000000\n", key_2000000_1: "literal line one 2000000001\nliteral line two 2000000001\n"}, key_2000_1: 'single value 2000001', key_2000_2: "literal line one 2000002\nliteral line two 2000002\n"}, key_2_1: "folded line one 2001\nfolded line two 2001\n"}
+entity_0_3: value_3
+entity_0_4: [value_4000]
+entity_0_5:  # lexer should preserve this
+  key_5_0: {key_5000_0: {key_5000000_0: "folded line one 5000000000\nfolded line two 5000000000\n", key_5000000_1: 'single value 5000000001'}}  # lexer should preserve this
+  # fuzz comment
+  key_5_1: |
+    literal line one 5001
+    literal line two 5001
+entity_0_6: value_6  # roundtrip comment
+entity_0_7: 'single value 7'
 ...

@@ -46,12 +46,13 @@ def test_schema_errors_are_korml_errors() -> None:
     assert exc_info.value.code() == "INVALID_SCHEMA"
 
 
-def test_bare_carriage_return_starts_a_new_line() -> None:
+def test_lone_carriage_return_is_an_error_at_its_position() -> None:
     with pytest.raises(korml.LexError) as exc_info:
         korml.loads('a: 1\rb: "x\n')
 
-    assert exc_info.value.span().start.line == 2
-    assert exc_info.value.span().start.column == 4
+    assert exc_info.value.code() == "INVALID_LINE_BREAK"
+    assert exc_info.value.span().start.line == 1
+    assert exc_info.value.span().start.column == 5
 
 
 @pytest.mark.parametrize(
@@ -146,9 +147,12 @@ def test_messages_keep_their_line_breaks() -> None:
 
 
 def test_source_text_in_messages_is_escaped() -> None:
-    with pytest.raises(korml.ParseError) as exc_info:
+    # A raw ESC is not allowed anywhere in a source; the diagnostic quotes the
+    # line it is on with the control escaped.
+    with pytest.raises(korml.LexError) as exc_info:
         korml.loads('a: "\\\x1b"\n')
 
+    assert exc_info.value.code() == "INVALID_CHARACTER"
     assert "\x1b" not in str(exc_info.value)
     assert "\\x1b" in str(exc_info.value)
 

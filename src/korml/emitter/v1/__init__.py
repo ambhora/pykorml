@@ -2,8 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # ------------------------------------------------------------------------------
 
+"""
+KORML v1 emitter.
+
+The emitter writes one canonical form: keys double-quoted, block collections
+indented by two spaces per level, a scalar either double-quoted or, when that
+reads back exactly, as a literal block scalar, and an empty collection as []
+or {} on the line of its key or dash. Every output follows the Korml rules
+and parses back to the same document.
+"""
+
 import enum
 
+import korml._limits
+import korml.error
 import korml.model
 
 __all__ = ["ErrorCode", "emit"]
@@ -11,9 +23,18 @@ __all__ = ["ErrorCode", "emit"]
 
 class ErrorCode(str, enum.Enum):
     UNSUPPORTED_VALUE = "UNSUPPORTED_VALUE"
+    KEY_TOO_LONG = "KEY_TOO_LONG"
+    TOO_DEEP = "TOO_DEEP"
 
     def __str__(self) -> str:
         return self.value
+
+
+# The longest key a source may hold, in characters of source text.
+MAX_KEY_LENGTH = 1024
+
+# The indentation width of every emitted document.
+_INDENT_WIDTH = 2
 
 
 def emit(
@@ -31,79 +52,90 @@ def emit(
 
     for document in stream.document_array:
         output.append("---")
-        output.extend(_emit_value(document, indent=0))
+        output.extend(_emit_root(document))
         output.append("...")
 
     return "\n".join(output) + "\n"
 
 
-def _emit_value(
+def _emit_root(value: korml.model.Value[object]) -> list[str]:
+    """
+    Return the lines of a document body whose root node is value.
+
+    A block scalar cannot be the root node, so a root scalar is always
+    double-quoted.
+    """
+    if isinstance(value, korml.model.Scalar):
+        return [_format_double_quoted_scalar(value.value)]
+
+    return _emit_collection(value, indent=0, depth=0)
+
+
+def _emit_collection(
     value: korml.model.Value[object],
     *,
     indent: int,
+    depth: int,
 ) -> list[str]:
-    if isinstance(value, korml.model.Scalar):
-        return _emit_scalar(value.value, indent=indent)
+    if depth > korml._limits.MAX_NESTING_DEPTH:
+        raise korml.error.EmitError(
+            message=(
+                f"collections are nested deeper than {korml._limits.MAX_NESTING_DEPTH} levels"
+            ),
+            code=str(ErrorCode.TOO_DEEP),
+        )
 
     if isinstance(value, korml.model.Sequence):
-        return _emit_sequence(value, indent=indent)
+        if not value.value_array:
+            return [" " * indent + "[]"]
+        return _emit_sequence(value, indent=indent, depth=depth)
 
     if isinstance(value, korml.model.Mapping):
-        return _emit_mapping(value, indent=indent)
+        if not value.value_map:
+            return [" " * indent + "{}"]
+        return _emit_mapping(value, indent=indent, depth=depth)
 
     raise TypeError(f"cannot emit {type(value).__name__!r}")
 
 
-def _emit_scalar(
-    value: str,
+def _emit_entry(
+    head: str,
+    value: korml.model.Value[object],
     *,
     indent: int,
+    depth: int,
 ) -> list[str]:
-    prefix = " " * indent
+    """
+    Return the lines of a mapping or sequence entry whose key or dash is head.
 
-    if not _is_literal_block_safe(value):
-        return [prefix + _format_double_quoted_scalar(value)]
+    A scalar and an empty collection go on the line of head; a non-empty
+    collection starts on the next line, one level deeper, since a block
+    collection cannot start on the line of its key and a compact entry is
+    not needed.
+    """
+    if isinstance(value, korml.model.Scalar):
+        return _emit_scalar_entry(head, value.value, indent=indent)
 
-    line_array = [prefix + "|"]
-    line_array.extend(_literal_block_content_lines(value, indent=indent + 2))
+    is_empty_collection = (isinstance(value, korml.model.Sequence) and not value.value_array) or (
+        isinstance(value, korml.model.Mapping) and not value.value_map
+    )
 
-    return line_array
+    if is_empty_collection:
+        return [head + " " + _emit_collection(value, indent=0, depth=depth)[0]]
+
+    return [head, *_emit_collection(value, indent=indent + _INDENT_WIDTH, depth=depth)]
 
 
 def _emit_sequence(
     sequence: korml.model.Sequence[object],
     *,
     indent: int,
+    depth: int,
 ) -> list[str]:
-    prefix = " " * indent
-
-    if not sequence.value_array:
-        return [prefix + "[]"]
-
     line_array: list[str] = []
 
     for value in sequence.value_array:
-        if isinstance(value, korml.model.Scalar):
-            line_array.extend(_emit_sequence_scalar_item(value.value, indent=indent))
-        else:
-            line_array.append(prefix + "-")
-            line_array.extend(_emit_value(value, indent=indent + 2))
-
-    return line_array
-
-
-def _emit_sequence_scalar_item(
-    value: str,
-    *,
-    indent: int,
-) -> list[str]:
-    prefix = " " * indent
-
-    if not _is_literal_block_safe(value):
-        return [prefix + "- " + _format_double_quoted_scalar(value)]
-
-    line_array = [prefix + "- |"]
-    line_array.extend(_literal_block_content_lines(value, indent=indent + 2))
+        line_array.extend(_emit_entry(" " * indent + "-", value, indent=indent, depth=depth + 1))
 
     return line_array
 
@@ -112,60 +144,51 @@ def _emit_mapping(
     mapping: korml.model.Mapping[object],
     *,
     indent: int,
+    depth: int,
 ) -> list[str]:
-    prefix = " " * indent
-
-    if not mapping.value_map:
-        return [prefix + "{}"]
-
     line_array: list[str] = []
 
     for key, value in mapping.value_map.items():
         formatted_key = _format_double_quoted_scalar(key)
 
-        if isinstance(value, korml.model.Scalar):
-            line_array.extend(
-                _emit_mapping_scalar_item(
-                    formatted_key=formatted_key,
-                    value=value.value,
-                    indent=indent,
-                )
+        if len(formatted_key) > MAX_KEY_LENGTH:
+            raise korml.error.EmitError(
+                message=(
+                    f"key is longer than {MAX_KEY_LENGTH} characters when written double-quoted"
+                ),
+                code=str(ErrorCode.KEY_TOO_LONG),
             )
-        else:
-            line_array.append(prefix + formatted_key + ":")
-            line_array.extend(_emit_value(value, indent=indent + 2))
+
+        line_array.extend(
+            _emit_entry(" " * indent + formatted_key + ":", value, indent=indent, depth=depth + 1)
+        )
 
     return line_array
 
 
-def _emit_mapping_scalar_item(
-    *,
-    formatted_key: str,
-    value: str,
-    indent: int,
-) -> list[str]:
-    prefix = " " * indent
-
+def _emit_scalar_entry(head: str, value: str, *, indent: int) -> list[str]:
+    """Return the lines of an entry whose value is a scalar, after head."""
     if not _is_literal_block_safe(value):
-        return [prefix + formatted_key + ": " + _format_double_quoted_scalar(value)]
+        return [head + " " + _format_double_quoted_scalar(value)]
 
-    line_array = [prefix + formatted_key + ": |"]
-    line_array.extend(_literal_block_content_lines(value, indent=indent + 2))
+    # The content indentation of a block scalar is the column of its key or
+    # dash plus the indentation width.
+    prefix = " " * (indent + _INDENT_WIDTH)
 
-    return line_array
+    return [head + " |", *(prefix + line for line in value[:-1].split("\n"))]
 
 
 def _is_literal_block_safe(value: str) -> bool:
     """
     Return whether a literal block scalar reads back as exactly value.
 
-    A literal block keeps one final line break and drops trailing blank
-    lines, takes its indentation from its first line, and ends a line at any
-    line break the lexer knows, including a bare carriage return. A value
-    is written as a block only if none of that can change it: it ends with
+    A literal block keeps one final line break and drops trailing empty
+    lines, and its first content line fixes its indentation. A value is
+    written as a block only if none of that can change it: it ends with
     exactly one line feed, and every line is non-empty, starts and ends
-    without whitespace and holds printable characters or tabs only. Every
-    other value is written double-quoted, which always reads back exactly.
+    without whitespace and holds printable characters or tabs only, so no
+    character needs an escape. Every other value is written double-quoted,
+    which always reads back exactly.
     """
     if not value.endswith("\n") or value.endswith("\n\n"):
         return False
@@ -179,26 +202,21 @@ def _is_literal_block_safe(value: str) -> bool:
     return True
 
 
-def _literal_block_content_lines(
-    value: str,
-    *,
-    indent: int,
-) -> list[str]:
-    prefix = " " * indent
-    content = value[:-1]
-
-    if content == "":
-        return [prefix]
-
-    return [prefix + line for line in content.split("\n")]
+# The escapes of double-quoted scalars that have a short form.
+_SHORT_ESCAPE_MAP = {
+    "\\": "\\\\",
+    '"': '\\"',
+    "\b": "\\b",
+    "\t": "\\t",
+    "\n": "\\n",
+    "\f": "\\f",
+    "\r": "\\r",
+}
 
 
 def _escape_code_point(char: str) -> str:
-    """Escape a character that is not printable, as \\xXX, \\uXXXX or \\UXXXXXXXX."""
+    """Escape a character as \\uXXXX, or as \\UXXXXXXXX beyond the Basic Multilingual Plane."""
     code_point = ord(char)
-
-    if code_point < 0x100:
-        return f"\\x{code_point:02x}"
 
     if code_point < 0x10000:
         return f"\\u{code_point:04x}"
@@ -207,36 +225,31 @@ def _escape_code_point(char: str) -> str:
 
 
 def _format_double_quoted_scalar(value: str) -> str:
+    """
+    Return value as a double-quoted scalar.
+
+    Every character that is not printable is written as an escape. That
+    covers every character a source may not hold raw (controls, separators,
+    bidirectional controls, invisible characters and the zero-width joiners),
+    so the result is valid in a value and in a key. A lone surrogate cannot
+    be written at all: no escape denotes one, and UTF-8 cannot encode it.
+    """
     output = ['"']
 
     for char in value:
-        match char:
-            case "\\":
-                output.append("\\\\")
-            case '"':
-                output.append('\\"')
-            case "\0":
-                output.append("\\0")
-            case "\a":
-                output.append("\\a")
-            case "\b":
-                output.append("\\b")
-            case "\t":
-                output.append("\\t")
-            case "\n":
-                output.append("\\n")
-            case "\v":
-                output.append("\\v")
-            case "\f":
-                output.append("\\f")
-            case "\r":
-                output.append("\\r")
-            case _ if 0xD800 <= ord(char) <= 0xDFFF:
-                raise ValueError("cannot emit a string that contains a lone surrogate")
-            case _ if not char.isprintable():
-                output.append(_escape_code_point(char))
-            case _:
-                output.append(char)
+        if char in _SHORT_ESCAPE_MAP:
+            output.append(_SHORT_ESCAPE_MAP[char])
+        elif 0xD800 <= ord(char) <= 0xDFFF:
+            raise korml.error.EmitError(
+                message=(
+                    f"cannot emit a string that contains the lone surrogate U+{ord(char):04X}"
+                ),
+                code=str(ErrorCode.UNSUPPORTED_VALUE),
+            )
+        elif not char.isprintable():
+            output.append(_escape_code_point(char))
+        else:
+            output.append(char)
 
     output.append('"')
 

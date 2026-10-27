@@ -1,21 +1,41 @@
 %!korml version 1.0
 ---
-entity_0_0: "double value 0"  # generated comment
-entity_0_1: "double value 1"
-entity_0_2:
-- key_2000_0:
-    key_2000000_0: |
-      literal line one 2000000000
-      literal line two 2000000000
-    key_2000000_1: value_2000000001
+entity_0_0:
+  key_0_0: >
+    folded line one 0
 
+    folded line two 0
+  key_0_1:
+    # lexer should preserve this
+    - key_1000_0: value_1000000
+      key_1000_1: >
+        folded line one 1000001
+
+        folded line two 1000001
+      key_1000_2: "double value 1000002"  # lexer should preserve this
+    - - value_1001000  # generated comment
+    - ["literal line one 1002000\nliteral line two 1002000\n", "double value 1002001", value_1002002]
+entity_0_1: 'single value 1'
+entity_0_2:  # lexer should preserve this
+  key_2_0: [["literal line one 2000000000\nliteral line two 2000000000\n", "literal line one 2000000001\nliteral line two 2000000001\n", "literal line one 2000000002\nliteral line two 2000000002\n"], {key_2000001_0: "folded line one 2000001000\nfolded line two 2000001000\n"}, "folded line one 2000002\nfolded line two 2000002\n"]
   # lexer should preserve this
-  key_2000_1: ['single value 2000001000']
-  # generated comment
-  key_2000_2: value_2000002
-# roundtrip comment
-- {key_2001_0: "folded line one 2001000\nfolded line two 2001000\n"}
-- [value_2002000, ["literal line one 2002001000\nliteral line two 2002001000\n", "folded line one 2002001001\nfolded line two 2002001001\n"], 'single value 2002002']
-entity_0_3: "double value 3"
-entity_0_4: value_4
+  key_2_1: >
+    folded line one 2001
+
+    folded line two 2001
+  key_2_2: value_2002
+entity_0_3: >
+  folded line one 3
+
+  folded line two 3
+entity_0_4:
+  - - 'single value 4000000'  # lexer should preserve this
+
+    - "double value 4000001"  # fuzz comment
+entity_0_5: {key_5_0: {key_5000_0: value_5000000, key_5000_1: {key_5000001_0: "double value 5000001000"}}}  # roundtrip comment
+
+entity_0_6:
+  key_6_0: [{key_6000000_0: 'single value 6000000000', key_6000000_1: "literal line one 6000000001\nliteral line two 6000000001\n", key_6000000_2: "literal line one 6000000002\nliteral line two 6000000002\n"}]
+  key_6_1: value_6001  # fuzz comment
+entity_0_7: {key_7_0: value_7000}  # lexer should preserve this
 ...

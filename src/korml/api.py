@@ -4,7 +4,9 @@
 
 import collections.abc
 import copy
+import os
 import pathlib
+import stat
 import typing
 
 import korml._atomic
@@ -31,11 +33,12 @@ def loads(
     max_parse_work: int | None = korml._limits.MAX_PARSE_WORK,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
     korml._limits.check_input_size(input_text, max_input_bytes=max_input_bytes, filename=filename)
-    # A byte-order mark is an artefact of the encoding, not Korml text; it is
-    # dropped as YAML does, so a file saved with one reads like one without.
+    # A byte-order mark is not allowed anywhere in a korml source, not even
+    # at the start: the lexer rejects it rather than dropping it, so every
+    # reader sees the same text.
     file = korml.lexer.file.lex(
         filename=filename,
-        input_text=input_text.removeprefix("\ufeff"),
+        input_text=input_text,
         debug=debug,
         max_tokens=max_tokens,
     )
@@ -57,8 +60,17 @@ def load(
     max_tokens: int | None = korml._limits.MAX_TOKENS,
     max_parse_work: int | None = korml._limits.MAX_PARSE_WORK,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
+    """
+    Read and parse the Korml file filename.
+
+    Only a regular file is read. A FIFO, a device or a directory is refused
+    with a CompilerError: reading a FIFO waits for a writer forever, and a
+    device such as /dev/zero never ends. The file is opened without
+    blocking and checked after opening, so it cannot be swapped for a FIFO
+    between the check and the read.
+    """
     path = pathlib.Path(filename)
-    with path.open("rb") as stream:
+    with _open_regular_file(path) as stream:
         data = stream.read(max_input_bytes + 1 if max_input_bytes is not None else -1)
     if max_input_bytes is not None and len(data) > max_input_bytes:
         raise korml.error.CompilerError(
@@ -83,6 +95,26 @@ def load(
         max_tokens=max_tokens,
         max_parse_work=max_parse_work,
     )
+
+
+def _open_regular_file(path: pathlib.Path) -> typing.BinaryIO:
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+
+    try:
+        is_regular_file = stat.S_ISREG(os.fstat(descriptor).st_mode)
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+    if not is_regular_file:
+        os.close(descriptor)
+        raise korml.error.CompilerError(
+            message="input is not a regular file",
+            source_name=str(path),
+            code="NOT_A_REGULAR_FILE",
+        )
+
+    return os.fdopen(descriptor, "rb")
 
 
 def dumps(
@@ -135,7 +167,7 @@ def _make_stream(
         )
 
     return korml.model.Stream[korml.lexer.v1.Token](
-        document_array=[_make_value(value, version=version)],
+        document_array=[_make_value(value, version=version, depth=0, active_id_set=set())],
         cst=korml.model.CST(version=version),
     )
 
@@ -144,20 +176,53 @@ def _make_value(
     value: object,
     *,
     version: korml.model.Version,
+    depth: int,
+    active_id_set: set[int],
 ) -> korml.model.Value[korml.lexer.v1.Token]:
+    """
+    Convert a plain Python value into a korml value.
+
+    The conversion recurses once per level of nesting, so it refuses
+    containers nested deeper than korml reads (MAX_NESTING_DEPTH) and a
+    container that contains itself, with an EmitError instead of a
+    RecursionError. active_id_set holds the containers on the current path;
+    a container shared by two branches is not a cycle and is written twice.
+    """
     if isinstance(value, str):
         return korml.model.Scalar[korml.lexer.v1.Token](
             value,
             cst=korml.model.CST(version=version),
         )
 
-    if isinstance(value, list):
-        return korml.model.Sequence[korml.lexer.v1.Token](
-            value_array=[_make_value(child, version=version) for child in value],
-            cst=korml.model.CST(version=version),
+    if not isinstance(value, (list, dict)):
+        raise TypeError(f"cannot dump {type(value).__name__!r}")
+
+    if depth > korml._limits.MAX_NESTING_DEPTH:
+        raise korml.error.EmitError(
+            message=f"collections are nested deeper than {korml._limits.MAX_NESTING_DEPTH} levels",
+            code=str(korml.emitter.v1.ErrorCode.TOO_DEEP),
         )
 
-    if isinstance(value, dict):
+    if id(value) in active_id_set:
+        raise korml.error.EmitError(
+            message=f"cannot dump a {type(value).__name__} that contains itself",
+            code=str(korml.emitter.v1.ErrorCode.UNSUPPORTED_VALUE),
+        )
+
+    active_id_set.add(id(value))
+
+    try:
+        if isinstance(value, list):
+            return korml.model.Sequence[korml.lexer.v1.Token](
+                value_array=[
+                    _make_value(
+                        child, version=version, depth=depth + 1, active_id_set=active_id_set
+                    )
+                    for child in value
+                ],
+                cst=korml.model.CST(version=version),
+            )
+
         mapping = korml.model.Mapping[korml.lexer.v1.Token](
             cst=korml.model.CST(version=version),
         )
@@ -166,11 +231,14 @@ def _make_value(
             if not isinstance(key, str):
                 raise TypeError("mapping keys must be strings")
 
-            mapping.add_item(key, _make_value(child, version=version))
+            mapping.add_item(
+                key,
+                _make_value(child, version=version, depth=depth + 1, active_id_set=active_id_set),
+            )
 
         return mapping
-
-    raise TypeError(f"cannot dump {type(value).__name__!r}")
+    finally:
+        active_id_set.discard(id(value))
 
 
 _TRIVIA_SET = {
@@ -203,7 +271,13 @@ def edit(
 
     The result is parsed again and must equal the original with the
     replacements applied; anything else is a BugError, so an edit can never
-    change more than it says.
+    change more than it says. That check parses without the default resource
+    limits: the stream was already accepted under its caller's limits when
+    it was loaded, and the edited source differs from it only by the
+    replacement strings, each a single double-quoted scalar, so it nests no
+    deeper and has at most a few tokens more per replacement. The work is
+    bounded by the size of the stream and the replacements the caller
+    passes, not by anything an untrusted source can choose.
     """
     token_array = stream.token_array
     index_map = {id(token): index for index, token in enumerate(token_array)}
@@ -219,7 +293,7 @@ def edit(
         if path is None:
             raise ValueError("replacement value is not a value of this stream")
 
-        splice_array.append(_splice_for(value, text, index_map=index_map))
+        splice_array.append(_splice_for(value, text, index_map=index_map, is_root=len(path) == 1))
         path_array.append((path, text))
 
     splice_array.sort()
@@ -265,6 +339,7 @@ def _splice_for(
     text: str,
     *,
     index_map: dict[int, int],
+    is_root: bool,
 ) -> tuple[int, int, str]:
     """Return the token range a replaced value covers and the text it becomes."""
     content_array = [token for token in value.token_array if token.type not in _TRIVIA_SET]
@@ -281,12 +356,13 @@ def _splice_for(
         scalar += _final_line_break(content_array[-1].value)
 
     # A block collection starts on the line after its key or dash; the scalar
-    # replacing it goes on that line, after one space.
+    # replacing it goes on that line, after one space. A root collection has
+    # no key or dash, and its replacement starts at column 1 where it did.
     block_collection = (
         isinstance(value, (korml.model.Mapping, korml.model.Sequence))
         and value.style is korml.model.Style.block
     )
-    if block_collection and value.token_array:
+    if block_collection and value.token_array and not is_root:
         return index_map[id(value.token_array[0])], end, " " + scalar
 
     return start, end, scalar

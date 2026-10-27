@@ -114,9 +114,9 @@
   {
     "span": {
       "end": {
-        "column": 7,
-        "line": 3,
-        "offset": 30
+        "column": 1,
+        "line": 5,
+        "offset": 38
       },
       "start": {
         "column": 6,
@@ -125,6 +125,38 @@
       }
     },
     "type": "LITERAL_BLOCK_SCALAR",
-    "value": "|"
+    "value": "|\n  line\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 4,
+        "line": 5,
+        "offset": 41
+      },
+      "start": {
+        "column": 1,
+        "line": 5,
+        "offset": 38
+      }
+    },
+    "type": "DOC_END",
+    "value": "..."
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 6,
+        "offset": 42
+      },
+      "start": {
+        "column": 4,
+        "line": 5,
+        "offset": 41
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\n"
   }
 ]

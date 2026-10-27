@@ -33,6 +33,7 @@ import dataclasses
 import enum
 import re
 import sys
+import unicodedata
 
 import korml._limits
 import korml.core
@@ -40,10 +41,138 @@ import korml.lexer
 import korml.lexer.v1
 import korml.model
 
-__all__ = ["lex", "unlex"]
+__all__ = ["check_source_text", "lex", "unlex"]
 
 
-_VERSION_DIRECTIVE_PATTERN = re.compile(r"%!korml\s+version\s+(?P<version>\d+\.\d+)(?=\s*(#|$))")
+# The directive is one fixed line: single spaces, no comment, only trailing
+# whitespace after the version, so every reader finds the version the same way.
+_VERSION_DIRECTIVE_PATTERN = re.compile(r"%!korml version (?P<version>[^ \t]+)[ \t]*")
+
+# The characters that must not appear raw anywhere in a source: controls other
+# than TAB, LF and CR, surrogates, the noncharacters U+FFFE and U+FFFF, the
+# Unicode line and paragraph separators, the byte-order mark, bidirectional
+# controls and invisible separators. Each of them either breaks line counting
+# in some tool or makes text look different from what it is (a key "admin"
+# followed by a zero-width space displays as "admin"). They can still be
+# written as escapes in a double-quoted scalar.
+_FORBIDDEN_CHARACTER_PATTERN = re.compile(
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\ud800-\udfff￾￿  ﻿؜‎‏‪-‮⁦-⁩​⁠]"
+)
+
+# Zero-width joiners are legitimate text in some scripts, so quoted values,
+# block scalars and comments may hold them raw; in a plain scalar or a key
+# they would make two different strings look the same.
+JOINER_CHARACTER_SET = frozenset("‌‍")
+
+
+def _describe_character(char: str) -> str:
+    code_point = ord(char)
+    name = unicodedata.name(char, "")
+
+    if 0xD800 <= code_point <= 0xDFFF:
+        name = "SURROGATE"
+    elif char == "﻿":
+        name = "BYTE ORDER MARK"
+    elif name == "":
+        name = unicodedata.category(char) == "Cc" and "CONTROL CHARACTER" or "NONCHARACTER"
+
+    return f"U+{code_point:04X} {name}"
+
+
+def _position_at_offset(input_text: str, offset: int) -> korml.core.Position:
+    return korml.core.advance_position(korml.core.Position(1, 1, 0), input_text[:offset])
+
+
+def _line_at_offset(input_text: str, offset: int) -> str:
+    start = offset
+    while start > 0 and input_text[start - 1] not in "\r\n":
+        start -= 1
+
+    end = offset
+    while end < len(input_text) and input_text[end] not in "\r\n":
+        end += 1
+
+    return input_text[start:end]
+
+
+def _raise_source_text_error(
+    filename: str,
+    input_text: str,
+    offset: int,
+    *,
+    message: str,
+    code: korml.lexer.v1.ErrorCode,
+) -> None:
+    position = _position_at_offset(input_text, offset)
+    raise korml.error.LexError(
+        message=message,
+        code=code,
+        source_name=filename,
+        span=korml.core.Span(start=position, end=position),
+        source_line=_line_at_offset(input_text, offset),
+    )
+
+
+def check_source_text(filename: str, input_text: str) -> None:
+    """
+    Raise a LexError if the source text breaks a character or line-break rule.
+
+    These rules hold for the whole source, comments included, so they are
+    checked once before tokenizing rather than in every token rule: no
+    forbidden character (see _FORBIDDEN_CHARACTER_PATTERN), no byte-order
+    mark anywhere, and line breaks that are either all LF or all CRLF, with
+    no lone CR. A source mixing line-break styles counts lines differently
+    in different tools, so diagnostics and reviews would point at different
+    lines.
+    """
+    match = _FORBIDDEN_CHARACTER_PATTERN.search(input_text)
+
+    if match is not None:
+        char = match.group(0)
+        hint = (
+            "it cannot be encoded as UTF-8"
+            if 0xD800 <= ord(char) <= 0xDFFF
+            else "write it as an escape in a double-quoted scalar"
+        )
+        _raise_source_text_error(
+            filename,
+            input_text,
+            match.start(),
+            message=f"character {_describe_character(char)} is not allowed in korml source; {hint}",
+            code=korml.lexer.v1.ErrorCode.INVALID_CHARACTER,
+        )
+
+    lone_carriage_return = re.search(r"\r(?!\n)", input_text)
+
+    if lone_carriage_return is not None:
+        _raise_source_text_error(
+            filename,
+            input_text,
+            lone_carriage_return.start(),
+            message="a carriage return must be followed by a line feed",
+            code=korml.lexer.v1.ErrorCode.INVALID_LINE_BREAK,
+        )
+
+    first_line_feed = input_text.find("\n")
+
+    if first_line_feed < 0:
+        return
+
+    if first_line_feed > 0 and input_text[first_line_feed - 1] == "\r":
+        other_style = re.search(r"(?<!\r)\n", input_text)
+        message = "line break LF in a source that uses CRLF; use one style throughout"
+    else:
+        other_style = re.search(r"\r\n", input_text)
+        message = "line break CRLF in a source that uses LF; use one style throughout"
+
+    if other_style is not None:
+        _raise_source_text_error(
+            filename,
+            input_text,
+            other_style.start(),
+            message=message,
+            code=korml.lexer.v1.ErrorCode.INVALID_LINE_BREAK,
+        )
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -356,6 +485,15 @@ def _lex_document_end(
 
     position = lexer_state.position
 
+    if lexer_state.flow_nesting_level != 0:
+        raise korml.error.LexError(
+            message="unterminated flow collection before document end marker",
+            code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
+            source_name=lexer_state.source_file.filename,
+            span=_make_error_span(position),
+            source_line=_source_line(input_text, lexer_state),
+        )
+
     if not input_text.startswith("...", position.offset):
         raise korml.error.BugError(
             message="_lex_document_end() called without leading '...'",
@@ -389,6 +527,8 @@ def lex(
     *,
     max_tokens: int | None = None,
 ) -> korml.lexer.v1.File:
+    check_source_text(str(filename), input_text)
+
     lexer_state = LexerState(
         mode=LexerMode.VERSION_HEADER,
         position=korml.core.Position(1, 1, 0),
@@ -476,39 +616,49 @@ def lex(
             source_line=_source_line(input_text, lexer_state),
         )
 
+    # Every document, the last one included, ends with '...', so a truncated
+    # stream is an error rather than a shorter document.
+    if lexer_state.mode is not LexerMode.STREAM:
+        raise korml.error.LexError(
+            message="document is not terminated by '...'",
+            code=korml.lexer.v1.ErrorCode.MISSING_DOCUMENT_END,
+            source_name=lexer_state.source_file.filename,
+            span=_make_error_span(lexer_state.position),
+            source_line=_source_line(input_text, lexer_state),
+        )
+
+    if not any(token.type is korml.lexer.v1.TokenType.DOC_START for token in token_array):
+        raise korml.error.LexError(
+            message="expected document start marker",
+            code=korml.lexer.v1.ErrorCode.MISSING_DOCUMENT_START,
+            source_name=lexer_state.source_file.filename,
+            span=_make_error_span(lexer_state.position),
+            source_line=_source_line(input_text, lexer_state),
+        )
+
     return korml.lexer.v1.File(
         token_array=token_array, version=lexer_state.version, filename=filename
     )
 
 
-def _is_token_boundary(input_text: str, offset: int) -> bool:
-    return offset >= len(input_text) or input_text[offset] in " \t\r\n#"
+def _is_marker_line(input_text: str, lexer_state: LexerState, marker: str) -> bool:
+    """
+    Return whether the current position starts a '---' or '...' marker line.
 
+    A marker starts at column 0 and is alone on its line, apart from
+    trailing whitespace: no content and no comment follow it.
+    """
+    offset = lexer_state.position.offset
 
-def _detect_block_scalar_indent(
-    input_text: str,
-    offset: int,
-) -> int:
-    while offset < len(input_text):
-        line_start = offset
-        line_end = offset
+    if lexer_state.position.column != 1 or not input_text.startswith(marker, offset):
+        return False
 
-        while line_end < len(input_text) and input_text[line_end] not in "\r\n":
-            line_end += 1
+    rest = _read_until_newline(
+        input_text,
+        dataclasses.replace(lexer_state, position=_advance_position(lexer_state.position, marker)),
+    )
 
-        line_text = input_text[line_start:line_end]
-
-        if line_text.strip() != "":
-            return len(line_text) - len(line_text.lstrip(" "))
-
-        offset = line_end
-
-        if offset < len(input_text) and input_text.startswith("\r\n", offset):
-            offset += 2
-        elif offset < len(input_text) and input_text[offset] in "\r\n":
-            offset += 1
-
-    return 0
+    return rest.strip(" \t") == ""
 
 
 def _block_scalar_parent_indent(input_text: str, indicator_offset: int) -> int:
@@ -539,18 +689,21 @@ def _block_scalar_parent_indent(input_text: str, indicator_offset: int) -> int:
     return parent_indent
 
 
-def _block_scalar_body_end(input_text: str, offset: int, *, parent_indent: int) -> int:
+def _block_scalar_body_end(input_text: str, offset: int, *, parent_indent: int) -> tuple[int, bool]:
     """
-    Return the offset after the content lines of a block scalar.
+    Return the offset after the lines of a block scalar, and whether it has content.
 
-    The content indentation is that of the first non-blank line, which must
-    be deeper than parent_indent; otherwise the scalar is empty and that line
-    belongs to the enclosing node, as in YAML. Content continues over blank
-    lines and lines indented at least as deep.
+    The content indentation n is the owner column plus the indentation width
+    of the document, which only the parser knows. The lexer instead ends the
+    scalar before the first line that holds a character other than space or
+    TAB and is indented no deeper than the owner (parent_indent). The rules
+    end it before the first such line indented less than n; a line indented
+    deeper than the owner but less than n is an indentation error either
+    way, and the parser reports it when it checks every line against n.
+    Lines of spaces and TABs only belong to the scalar, where the parser
+    checks them too.
     """
-    block_indent = _detect_block_scalar_indent(input_text, offset)
-    if block_indent <= parent_indent:
-        return offset
+    has_content = False
 
     while offset < len(input_text):
         line_start = offset
@@ -561,10 +714,15 @@ def _block_scalar_body_end(input_text: str, offset: int, *, parent_indent: int) 
 
         line_text = input_text[line_start:line_end]
 
-        if line_text.strip() != "":
+        # A '---' or '...' line at column 0 is always a document marker.
+        if line_text.rstrip(" \t") in ("---", "..."):
+            break
+
+        if line_text.strip(" \t") != "":
             line_indent = len(line_text) - len(line_text.lstrip(" "))
-            if line_indent < block_indent:
+            if line_indent <= parent_indent:
                 break
+            has_content = True
 
         offset = line_end
 
@@ -573,7 +731,7 @@ def _block_scalar_body_end(input_text: str, offset: int, *, parent_indent: int) 
         elif offset < len(input_text) and input_text[offset] in "\r\n":
             offset += 1
 
-    return offset
+    return offset, has_content
 
 
 def _lex_single_quoted_scalar(
@@ -646,11 +804,40 @@ def _lex_single_quoted_scalar(
     )
 
 
+def _reject_colon_without_space(input_text: str, offset: int, lexer_state: LexerState) -> None:
+    """
+    Raise a LexError for a ':' right after a value that is not followed by a space.
+
+    A mapping colon is followed by a space, a line break or the end of the
+    input, in flow context too, so JSON-style {"a":1} is an error. Without
+    this check the ':1' would read as a plain scalar and the error would
+    only say that a colon is missing.
+    """
+    if (
+        offset < len(input_text)
+        and input_text[offset] == ":"
+        and not _is_mapping_colon(input_text, offset)
+    ):
+        raise korml.error.LexError(
+            message="a mapping colon must be followed by a space",
+            code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
+            source_name=lexer_state.source_file.filename,
+            span=_make_error_span(
+                _advance_position(
+                    lexer_state.position,
+                    input_text[lexer_state.position.offset : offset],
+                )
+            ),
+            source_line=_source_line(input_text, lexer_state),
+        )
+
+
 def _validate_flow_value_boundary(
     input_text: str,
     lexer_state: LexerState,
 ) -> None:
     if lexer_state.mode is not LexerMode.FLOW_VALUE_START:
+        _reject_colon_without_space(input_text, lexer_state.position.offset, lexer_state)
         return
 
     offset = lexer_state.position.offset
@@ -663,6 +850,8 @@ def _validate_flow_value_boundary(
 
     if input_text[offset] == "#":
         return
+
+    _reject_colon_without_space(input_text, offset, lexer_state)
 
     if input_text[offset] not in ",]}:":
         raise korml.error.LexError(
@@ -867,7 +1056,7 @@ def _lex_value_start_token(
         case ">":
             return _lex_folded_block_scalar(input_text, lexer_state)
 
-        case ":" if _is_mapping_colon(input_text, position.offset, lexer_state):
+        case ":" if _is_mapping_colon(input_text, position.offset):
             return _lex_colon(input_text, lexer_state)
 
         case "-":
@@ -891,11 +1080,8 @@ def _lex_value_start_token(
                 source_line=_source_line(input_text, lexer_state),
             )
 
-        case ".":
-            if input_text.startswith("...", position.offset):
-                return _lex_document_end(input_text, lexer_state)
-
-            return _lex_plain_scalar(input_text, lexer_state)
+        case "." if _is_marker_line(input_text, lexer_state, "..."):
+            return _lex_document_end(input_text, lexer_state)
 
         case _:
             return _lex_plain_scalar(input_text, lexer_state)
@@ -907,50 +1093,12 @@ def _lex_folded_block_scalar(
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
     _debug_lexer(lexer_state, "lex folded block scalar")
 
-    position = lexer_state.position
-
-    if input_text[position.offset] != ">":
-        raise korml.error.BugError(
-            message="_lex_folded_block_scalar() called without leading '>'",
-            location="korml.lexer._lex_folded_block_scalar",
-            source_name=lexer_state.source_file.filename,
-            span=_make_error_span(position),
-            source_line=_source_line(input_text, lexer_state),
-        )
-
-    offset = position.offset + 1
-
-    while offset < len(input_text) and input_text[offset] not in "\r\n":
-        offset += 1
-
-    if offset < len(input_text) and input_text.startswith("\r\n", offset):
-        offset += 2
-    elif offset < len(input_text) and input_text[offset] in "\r\n":
-        offset += 1
-
-    offset = _block_scalar_body_end(
+    return _lex_block_scalar(
         input_text,
-        offset,
-        parent_indent=_block_scalar_parent_indent(input_text, position.offset),
-    )
-
-    value = input_text[position.offset : offset]
-
-    token, new_position = _make_token(
-        korml.lexer.v1.TokenType.FOLDED_BLOCK_SCALAR,
-        value,
-        position,
-    )
-
-    new_state = dataclasses.replace(
         lexer_state,
-        position=new_position,
-        mode=LexerMode.VALUE_START,
+        indicator=">",
+        token_type=korml.lexer.v1.TokenType.FOLDED_BLOCK_SCALAR,
     )
-
-    _debug_lexer_result(lexer_state, token, new_state)
-
-    return token, new_state
 
 
 def _lex_literal_block_scalar(
@@ -959,44 +1107,95 @@ def _lex_literal_block_scalar(
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
     _debug_lexer(lexer_state, "lex literal block scalar")
 
+    return _lex_block_scalar(
+        input_text,
+        lexer_state,
+        indicator="|",
+        token_type=korml.lexer.v1.TokenType.LITERAL_BLOCK_SCALAR,
+    )
+
+
+def _raise_block_scalar_error(input_text: str, lexer_state: LexerState, message: str) -> None:
+    raise korml.error.LexError(
+        message=message,
+        code=korml.lexer.v1.ErrorCode.INVALID_BLOCK_SCALAR,
+        source_name=lexer_state.source_file.filename,
+        span=_make_error_span(lexer_state.position),
+        source_line=_source_line(input_text, lexer_state),
+    )
+
+
+def _lex_block_scalar(
+    input_text: str,
+    lexer_state: LexerState,
+    *,
+    indicator: str,
+    token_type: korml.lexer.v1.TokenType,
+) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a block scalar: its header line and all its content lines.
+
+    The header is the indicator, optionally followed by whitespace and a
+    comment. YAML's chomping and indentation indicators are not part of
+    korml: the value always ends with exactly one line break and the content
+    indentation follows from the layout, so there is one way to write each
+    block scalar. A block scalar without a content line is an error; the
+    empty string is written "".
+    """
     position = lexer_state.position
 
-    if input_text[position.offset] != "|":
+    if input_text[position.offset] != indicator:
         raise korml.error.BugError(
-            message="_lex_literal_block_scalar() called without leading '|'",
-            location="korml.lexer._lex_literal_block_scalar",
+            message=f"_lex_block_scalar() called without leading {indicator!r}",
+            location="korml.lexer._lex_block_scalar",
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
             source_line=_source_line(input_text, lexer_state),
         )
 
     offset = position.offset + 1
+    header_end = offset
 
-    while offset < len(input_text) and input_text[offset] not in "\r\n":
-        offset += 1
+    while header_end < len(input_text) and input_text[header_end] not in "\r\n":
+        header_end += 1
 
-    if offset >= len(input_text):
-        value = input_text[position.offset : offset]
-    elif input_text.startswith("\r\n", offset):
-        offset += 2
-        value = input_text[position.offset : offset]
-    else:
-        offset += 1
-        value = input_text[position.offset : offset]
+    header_rest = input_text[offset:header_end]
+    header_text = header_rest.lstrip(" \t")
+    is_comment = header_text.startswith("#") and len(header_text) < len(header_rest)
 
-    offset = _block_scalar_body_end(
+    if header_text != "" and not is_comment:
+        _raise_block_scalar_error(
+            input_text,
+            lexer_state,
+            f"only a comment may follow the block scalar indicator {indicator!r}; "
+            "korml has no chomping or indentation indicators",
+        )
+
+    if header_end >= len(input_text):
+        _raise_block_scalar_error(
+            input_text,
+            lexer_state,
+            'block scalar has no content lines; write an empty string as ""',
+        )
+
+    offset = header_end + (2 if input_text.startswith("\r\n", header_end) else 1)
+
+    offset, has_content = _block_scalar_body_end(
         input_text,
         offset,
         parent_indent=_block_scalar_parent_indent(input_text, position.offset),
     )
 
+    if not has_content:
+        _raise_block_scalar_error(
+            input_text,
+            lexer_state,
+            'block scalar has no content lines; write an empty string as ""',
+        )
+
     value = input_text[position.offset : offset]
 
-    token, new_position = _make_token(
-        korml.lexer.v1.TokenType.LITERAL_BLOCK_SCALAR,
-        value,
-        position,
-    )
+    token, new_position = _make_token(token_type, value, position)
 
     new_state = dataclasses.replace(
         lexer_state,
@@ -1053,7 +1252,7 @@ def _lex_flow_value_start_token(
         case "}":
             return _lex_flow_mapping_end(input_text, lexer_state)
 
-        case ":" if _is_mapping_colon(input_text, position.offset, lexer_state):
+        case ":" if _is_mapping_colon(input_text, position.offset):
             return _lex_colon(input_text, lexer_state)
 
         case "|":
@@ -1073,17 +1272,8 @@ def _lex_flow_value_start_token(
                 span=_make_error_span(position),
                 source_line=_source_line(input_text, lexer_state),
             )
-        case ".":
-            if input_text.startswith("...", position.offset):
-                raise korml.error.LexError(
-                    message="document end marker is not allowed inside flow collection",
-                    code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
-                    source_name=lexer_state.source_file.filename,
-                    span=_make_error_span(position),
-                    source_line=_source_line(input_text, lexer_state),
-                )
-
-            return _lex_plain_scalar(input_text, lexer_state)
+        case "." if _is_marker_line(input_text, lexer_state, "..."):
+            return _lex_document_end(input_text, lexer_state)
 
         case _:
             return _lex_plain_scalar(input_text, lexer_state)
@@ -1215,23 +1405,16 @@ def _lex_colon(
     return token, new_state
 
 
-def _is_mapping_colon(input_text: str, offset: int, lexer_state: LexerState) -> bool:
+def _is_mapping_colon(input_text: str, offset: int) -> bool:
     """
     Return whether the ':' at offset separates a key from its value.
 
-    As in YAML, a colon is a mapping indicator only when whitespace, a line
-    break or the end of the input follows it, or, inside a flow collection, a
-    flow indicator. After a quoted scalar or the end of a flow collection,
-    which cannot continue a plain scalar, any colon is an indicator, so
-    JSON-style {"a":1} keeps working. Any other colon belongs to a plain
-    scalar, as in http://example.org:8080 or 12:30.
+    A colon is a mapping indicator only when a space, a line break or the
+    end of the input follows it, in block and flow context alike. Any other
+    colon belongs to a plain scalar, as in http://example.org:8080 or 12:30.
     """
     following = offset + 1
-    if following >= len(input_text) or input_text[following] in " \t\r\n":
-        return True
-    if lexer_state.flow_nesting_level > 0 and input_text[following] in ",[]{}":
-        return True
-    return offset > 0 and input_text[offset - 1] in "\"']}"
+    return following >= len(input_text) or input_text[following] in " \r\n"
 
 
 def _mode_after_value(lexer_state: LexerState) -> LexerMode:
@@ -1241,42 +1424,128 @@ def _mode_after_value(lexer_state: LexerState) -> LexerMode:
     return LexerMode.VALUE_START
 
 
-_EXCLUDED_INDICATOR_MESSAGE_MAP = {
-    "&": "anchors are not supported in korml",
-    "*": "aliases are not supported in korml",
-    "!": "tags are not supported in korml",
-    "%": "directives are not supported in korml",
-    "@": "'@' is reserved and cannot start a plain scalar",
-    "`": "'`' is reserved and cannot start a plain scalar",
-}
-
-
-def _reject_excluded_indicator(input_text: str, lexer_state: LexerState) -> None:
-    """
-    Raise a LexError if a plain scalar would start with a YAML indicator.
-
-    YAML gives these characters a meaning at the start of a node: anchors,
-    aliases, tags, directives, complex keys, and two reserved characters.
-    Korml excludes those features, and reading them as text would make korml
-    and YAML disagree about the same source, so they are errors instead.
-    """
-    offset = lexer_state.position.offset
-    char = input_text[offset]
-    message = _EXCLUDED_INDICATOR_MESSAGE_MAP.get(char)
-
-    if char == "?" and _is_token_boundary(input_text, offset + 1):
-        message = "complex mapping keys are not supported in korml"
-
-    if message is None:
-        return
-
+def _raise_plain_scalar_error(
+    input_text: str,
+    lexer_state: LexerState,
+    offset: int,
+    message: str,
+) -> None:
     raise korml.error.LexError(
         message=message,
-        code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
+        code=korml.lexer.v1.ErrorCode.INVALID_PLAIN_SCALAR,
         source_name=lexer_state.source_file.filename,
-        span=_make_error_span(lexer_state.position),
+        span=_make_error_span(
+            _advance_position(
+                lexer_state.position,
+                input_text[lexer_state.position.offset : offset],
+            )
+        ),
         source_line=_source_line(input_text, lexer_state),
     )
+
+
+def _plain_scalar_end(input_text: str, lexer_state: LexerState) -> int:
+    """
+    Return the offset where the plain scalar at the current position ends.
+
+    A plain scalar is one line of text without TAB, '#', ',', '[', ']', '{'
+    and '}', and without a ':' followed by a space or a line break. In a
+    flow collection, the flow indicators and a comment end it; anywhere
+    else they are errors, so that a: hello, world or value#x cannot mean
+    one thing to korml and another to a reader who expects YAML or a
+    comment. A TAB ends it too; the whitespace that follows is checked by
+    _lex_horizontal_whitespace, where only trailing whitespace may hold a
+    TAB.
+    """
+    offset = lexer_state.position.offset
+    in_flow = lexer_state.flow_nesting_level > 0
+
+    while offset < len(input_text):
+        char = input_text[offset]
+
+        if char in "\r\n\t":
+            break
+
+        if char == "#":
+            if input_text[offset - 1] == " ":
+                break
+
+            _raise_plain_scalar_error(
+                input_text,
+                lexer_state,
+                offset,
+                "'#' is not allowed in a plain scalar; a comment needs a space before it, "
+                "and a value containing '#' must be quoted",
+            )
+
+        if char in ",[]{}":
+            if in_flow:
+                break
+
+            _raise_plain_scalar_error(
+                input_text,
+                lexer_state,
+                offset,
+                f"{char!r} is not allowed in a plain scalar; quote the value",
+            )
+
+        if char == ":" and _is_mapping_colon(input_text, offset):
+            break
+
+        offset += 1
+
+    return offset
+
+
+def _validate_plain_scalar(input_text: str, lexer_state: LexerState, value: str) -> None:
+    """
+    Raise a LexError if value cannot be a plain scalar.
+
+    The first character must not make the text read as another token or as
+    YAML syntax that korml leaves out: a quote, a block scalar indicator,
+    '- ', '? ' or ': ', or a document marker. '&', '*', '!', '%', '@' and
+    '`' are ordinary characters, also at the start, because korml has no
+    anchors, aliases, tags or directives in a document body.
+    """
+    offset = lexer_state.position.offset
+
+    if value == "":
+        _raise_plain_scalar_error(input_text, lexer_state, offset, "expected plain scalar")
+
+    if value[0] in "'\"|>":
+        _raise_plain_scalar_error(
+            input_text,
+            lexer_state,
+            offset,
+            f"a plain scalar cannot start with {value[0]!r}",
+        )
+
+    if value[0] in "-?:" and (len(value) == 1 or value[1] == " "):
+        _raise_plain_scalar_error(
+            input_text,
+            lexer_state,
+            offset,
+            f"a plain scalar cannot be or start with {value[0]!r} followed by a space; "
+            "quote the value",
+        )
+
+    if value.startswith("---") or value.startswith("..."):
+        _raise_plain_scalar_error(
+            input_text,
+            lexer_state,
+            offset,
+            f"a plain scalar cannot start with {value[:3]!r}; quote the value",
+        )
+
+    for index, char in enumerate(value):
+        if char in JOINER_CHARACTER_SET:
+            _raise_plain_scalar_error(
+                input_text,
+                lexer_state,
+                offset + index,
+                f"character {_describe_character(char)} is not allowed in a plain scalar; "
+                "quote the value",
+            )
 
 
 def _lex_plain_scalar(
@@ -1285,41 +1554,13 @@ def _lex_plain_scalar(
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
     _debug_lexer(lexer_state, "lex plain scalar")
     position = lexer_state.position
-    offset = position.offset
 
-    while offset < len(input_text):
-        char = input_text[offset]
+    offset = _plain_scalar_end(input_text, lexer_state)
 
-        if char in "\r\n":
-            break
+    # Spaces before a comment, a colon or a flow indicator are trivia.
+    value = input_text[position.offset : offset].rstrip(" ")
 
-        # A comment needs whitespace before it; value#x is one scalar.
-        if char == "#" and input_text[offset - 1] in " \t":
-            break
-
-        # Flow indicators end a plain scalar only inside a flow collection; in
-        # block context, a: hello, world and a: x[1] are plain scalars.
-        if char in "[]{}," and lexer_state.flow_nesting_level > 0:
-            break
-
-        if char == ":" and _is_mapping_colon(input_text, offset, lexer_state):
-            break
-
-        offset += 1
-
-    value = input_text[position.offset : offset].rstrip()
-
-    _reject_excluded_indicator(input_text, lexer_state)
-
-    # As in YAML, a flow indicator cannot start a plain scalar.
-    if value == "" or value[0] in ",[]{}":
-        raise korml.error.LexError(
-            message="expected plain scalar",
-            code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
-            source_name=lexer_state.source_file.filename,
-            span=_make_error_span(position),
-            source_line=_source_line(input_text, lexer_state),
-        )
+    _validate_plain_scalar(input_text, lexer_state, value)
 
     token, new_position = _make_token(
         korml.lexer.v1.TokenType.PLAIN_SCALAR,
@@ -1361,10 +1602,19 @@ def _lex_stream_token(
 
     position = lexer_state.position
 
-    if not input_text.startswith("---", position.offset):
+    if not _is_marker_line(input_text, lexer_state, "---"):
+        at_marker = input_text.startswith("---", position.offset)
         raise korml.error.LexError(
-            message="expected document start marker",
-            code=korml.lexer.v1.ErrorCode.MISSING_DOCUMENT_START,
+            message=(
+                "a document start marker '---' must start at column 1 and be alone on its line"
+                if at_marker
+                else "expected document start marker"
+            ),
+            code=(
+                korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER
+                if at_marker
+                else korml.lexer.v1.ErrorCode.MISSING_DOCUMENT_START
+            ),
             source_name=lexer_state.source_file.filename,
             span=_make_error_span(position),
             source_line=_source_line(input_text, lexer_state),
@@ -1395,10 +1645,7 @@ def _lex_dash_at_value_start(
 
     position = lexer_state.position
 
-    if input_text.startswith("---", position.offset) and _is_token_boundary(
-        input_text,
-        position.offset + 3,
-    ):
+    if _is_marker_line(input_text, lexer_state, "---"):
         raise korml.error.LexError(
             message="unexpected document start marker",
             code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
@@ -1436,9 +1683,7 @@ def _lex_version_directive(
     position = lexer_state.position
     line_text = _read_until_newline(input_text, lexer_state)
 
-    match = _VERSION_DIRECTIVE_PATTERN.match(line_text)
-
-    if match is None:
+    if not line_text.startswith("%!korml"):
         raise korml.error.LexError(
             message="expected korml version directive",
             code=korml.lexer.v1.ErrorCode.MISSING_VERSION_DIRECTIVE,
@@ -1447,7 +1692,20 @@ def _lex_version_directive(
             source_line=_source_line(input_text, lexer_state),
         )
 
-    value = match.group(0)
+    match = _VERSION_DIRECTIVE_PATTERN.fullmatch(line_text)
+
+    if match is None or position.column != 1:
+        raise korml.error.LexError(
+            message=(
+                "malformed version directive; write exactly '%!korml version 1.0' "
+                "at the start of a line, without a comment"
+            ),
+            code=korml.lexer.v1.ErrorCode.INVALID_VERSION_DIRECTIVE,
+            source_name=lexer_state.source_file.filename,
+            span=_make_error_span(lexer_state.position),
+            source_line=_source_line(input_text, lexer_state),
+        )
+
     version_text = match.group("version")
 
     match version_text:
@@ -1455,12 +1713,14 @@ def _lex_version_directive(
             version = korml.model.Version.v1
         case _:
             raise korml.error.LexError(
-                message="expected korml version directive",
-                code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
+                message=f"unsupported korml version {version_text!r}; expected '1.0'",
+                code=korml.lexer.v1.ErrorCode.INVALID_VERSION_DIRECTIVE,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(lexer_state.position),
                 source_line=_source_line(input_text, lexer_state),
             )
+
+    value = line_text[: match.end("version")]
 
     token, new_position = _make_token(
         korml.lexer.v1.TokenType.VERSION_DIRECTIVE,
@@ -1526,7 +1786,7 @@ def _lex_newline(
     return token, new_state
 
 
-def _reject_tab_indentation(
+def _reject_tab_separator(
     input_text: str,
     lexer_state: LexerState,
     *,
@@ -1534,24 +1794,26 @@ def _reject_tab_indentation(
     end: int,
 ) -> None:
     """
-    Raise a LexError if a tab indents content in block context.
+    Raise a LexError if a TAB in whitespace is not trailing whitespace.
 
-    Indentation decides the structure of a block collection, and a tab has
-    no defined width, so, as in YAML, block indentation is spaces only. A tab
-    before a comment, at the end of a line, inside a line or inside a flow
-    collection is ordinary whitespace.
+    A TAB has no defined width, so it may not indent a line, whose
+    indentation decides the structure, and it may not separate tokens or
+    sit inside a plain scalar either. Whitespace that ends the line or
+    comes before a comment may hold TABs.
     """
-    at_line_start = lexer_state.position.column == 1
-    ends_line = end >= len(input_text) or input_text[end] in "\r\n#"
-
-    if "\t" not in value or not at_line_start or ends_line:
+    if "\t" not in value:
         return
 
-    if lexer_state.flow_nesting_level > 0:
+    if end >= len(input_text) or input_text[end] in "\r\n#":
         return
+
+    if lexer_state.position.column == 1:
+        message = "tabs are not allowed in indentation; indent with spaces"
+    else:
+        message = "a tab cannot separate tokens or appear in a plain scalar; use spaces"
 
     raise korml.error.LexError(
-        message="tabs are not allowed in indentation; indent with spaces",
+        message=message,
         code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
         source_name=lexer_state.source_file.filename,
         span=_make_error_span(lexer_state.position),
@@ -1589,7 +1851,7 @@ def _lex_horizontal_whitespace(
 
     value = input_text[position.offset : offset]
 
-    _reject_tab_indentation(input_text, lexer_state, value=value, end=offset)
+    _reject_tab_separator(input_text, lexer_state, value=value, end=offset)
 
     token, new_position = _make_token(
         korml.lexer.v1.TokenType.WHITESPACE,
@@ -1627,6 +1889,19 @@ def _lex_comment(
         state after consuming the comment text.
     """
     position = lexer_state.position
+    offset = position.offset
+
+    # A '#' starts a comment only at the start of a line's content or after
+    # whitespace; "a"#b is not a value followed by a comment.
+    if offset > 0 and input_text[offset - 1] not in " \t\r\n":
+        raise korml.error.LexError(
+            message="a comment must be preceded by a space",
+            code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
+            source_name=lexer_state.source_file.filename,
+            span=_make_error_span(position),
+            source_line=_source_line(input_text, lexer_state),
+        )
+
     value = _read_until_newline(input_text, lexer_state)
 
     token, new_position = _make_token(

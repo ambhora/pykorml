@@ -116,7 +116,7 @@
       "end": {
         "column": 1,
         "line": 5,
-        "offset": 50
+        "offset": 55
       },
       "start": {
         "column": 6,
@@ -125,6 +125,38 @@
       }
     },
     "type": "FOLDED_BLOCK_SCALAR",
-    "value": "> header text\n  line\n"
+    "value": "> # header comment\n  line\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 4,
+        "line": 5,
+        "offset": 58
+      },
+      "start": {
+        "column": 1,
+        "line": 5,
+        "offset": 55
+      }
+    },
+    "type": "DOC_END",
+    "value": "..."
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 6,
+        "offset": 59
+      },
+      "start": {
+        "column": 4,
+        "line": 5,
+        "offset": 58
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\n"
   }
 ]

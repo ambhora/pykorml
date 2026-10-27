@@ -10,6 +10,7 @@ import enum
 import re
 import typing
 
+import korml._limits
 import korml.error
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "ValidationError",
     "SchemaError",
     "ConstructionError",
+    "InvalidValueError",
     "TypeReference",
     "TypeDefinition",
     "Schema",
@@ -46,6 +48,8 @@ class ErrorCode(str, enum.Enum):
     OUT_OF_RANGE = "OUT_OF_RANGE"
     INVALID_ENUM_VALUE = "INVALID_ENUM_VALUE"
     CONSTRUCTION_FAILED = "CONSTRUCTION_FAILED"
+    TOO_DEEP = "TOO_DEEP"
+    CYCLIC_VALUE = "CYCLIC_VALUE"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -90,6 +94,25 @@ class ConstructionError(korml.error.KormlError, ValueError):
                 korml.error.escape_controls(error.message) for error in self.error_array
             ),
             code=ErrorCode.CONSTRUCTION_FAILED.value,
+        )
+
+
+class InvalidValueError(korml.error.KormlError, ValueError):
+    """Raised when a value cannot be validated at all: it nests too deeply or contains itself.
+
+    validate and construct walk a value along its schema types, once per
+    level of nesting. A value nested deeper than korml reads or writes
+    (korml._limits.MAX_NESTING_DEPTH), or a container that contains itself
+    under a recursive schema type, would otherwise end in a RecursionError
+    or never end. A KormlError and a ValueError, like the other schema errors.
+    """
+
+    def __init__(self, *, code: ErrorCode, path: tuple[str | int, ...], message: str) -> None:
+        """Store the path of the offending value with the message."""
+        self.path = path
+        super().__init__(
+            message=f"{korml.error.escape_controls(_format_path(path))}: {message}",
+            code=code.value,
         )
 
 
@@ -174,13 +197,20 @@ def compile_schema(value: Builtin) -> Schema:
 
 
 def validate(value: Builtin, schema: Schema) -> list[ValidationError]:
-    """Validate a KORML builtin value against the schema root type."""
+    """
+    Validate a KORML builtin value against the schema root type.
+
+    Returns the list of validation errors, empty if the value is valid.
+    Raises InvalidValueError for a value nested deeper than
+    korml._limits.MAX_NESTING_DEPTH or one that contains itself.
+    """
     _check_schema_type(schema)
     return _validate_type(
         value=value,
         schema=schema,
         type_name=schema.root.name,
         path=(),
+        active_id_set=set(),
     )
 
 
@@ -190,7 +220,29 @@ def construct(
     constructor_map: collections.abc.Mapping[str, collections.abc.Callable[..., object]]
     | None = None,
 ) -> object:
-    """Validate a builtin value and recursively build user-defined objects."""
+    """
+    Validate a builtin value and recursively build user-defined objects.
+
+    constructor_map maps type names to callables. Children are constructed
+    first; then the constructor of a type, if there is one, is called with
+    the constructed value:
+
+    - scalar, enum, any and sequence types: constructor(value);
+    - mapping types without values: constructor(**fields), one keyword
+      argument per declared field present in the document;
+    - mapping types with values: constructor(entries, **fields), where
+      entries is a dict of every entry that is not a declared field.
+
+    Only declared fields become keyword arguments. Keys of the open-ended
+    values entries come from the document, so passing them as keywords
+    would let a document set any parameter of the constructor, such as
+    sandbox in Job(cmd, sandbox=True); they are passed as one dict instead.
+
+    Raises ConstructionError if the value is invalid or a constructor
+    fails, and InvalidValueError (see validate) for a value nested too
+    deeply or containing itself. Construction follows the same path through
+    the value as validation, which has already checked both.
+    """
     _check_schema_type(schema)
 
     if constructor_map is None:
@@ -419,6 +471,7 @@ def _validate_type(
     schema: Schema,
     type_name: str,
     path: tuple[str | int, ...],
+    active_id_set: set[int],
 ) -> list[ValidationError]:
     """Dispatch validation for one value against a named schema type."""
     type_definition = schema.types.get(type_name)
@@ -439,11 +492,14 @@ def _validate_type(
         case "scalar":
             return _validate_scalar(value, type_definition, path)
 
+        case "sequence" | "mapping" if isinstance(value, (list, dict)):
+            return _validate_collection(value, schema, type_definition, path, active_id_set)
+
         case "sequence":
-            return _validate_sequence(value, schema, type_definition, path)
+            return _validate_sequence(value, schema, type_definition, path, set())
 
         case "mapping":
-            return _validate_mapping(value, schema, type_definition, path)
+            return _validate_mapping(value, schema, type_definition, path, set())
 
         case "enum":
             return _validate_enum(value, type_definition, path)
@@ -559,11 +615,55 @@ def _validate_integer_scalar(
     return []
 
 
+def _validate_collection(
+    value: list[typing.Any] | dict[str, typing.Any],
+    schema: Schema,
+    type_definition: TypeDefinition,
+    path: tuple[str | int, ...],
+    active_id_set: set[int],
+) -> list[ValidationError]:
+    """
+    Validate a list or dict, refusing deep nesting and cycles first.
+
+    active_id_set holds the containers on the path from the root to value;
+    meeting one of them again means the value contains itself. A container
+    shared by two branches is not a cycle.
+    """
+    collection_depth = len(active_id_set)
+
+    if collection_depth > korml._limits.MAX_NESTING_DEPTH:
+        raise InvalidValueError(
+            code=ErrorCode.TOO_DEEP,
+            path=path,
+            message=(
+                f"collections are nested deeper than {korml._limits.MAX_NESTING_DEPTH} levels"
+            ),
+        )
+
+    if id(value) in active_id_set:
+        raise InvalidValueError(
+            code=ErrorCode.CYCLIC_VALUE,
+            path=path,
+            message="the value contains itself",
+        )
+
+    active_id_set.add(id(value))
+
+    try:
+        if type_definition.kind == "sequence":
+            return _validate_sequence(value, schema, type_definition, path, active_id_set)
+
+        return _validate_mapping(value, schema, type_definition, path, active_id_set)
+    finally:
+        active_id_set.discard(id(value))
+
+
 def _validate_sequence(
     value: Builtin,
     schema: Schema,
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
+    active_id_set: set[int],
 ) -> list[ValidationError]:
     """Validate a builtin sequence and each item against its item type."""
     if not isinstance(value, list):
@@ -593,6 +693,7 @@ def _validate_sequence(
                 schema=schema,
                 type_name=type_definition.items.name,
                 path=path + (index,),
+                active_id_set=active_id_set,
             )
         )
 
@@ -604,6 +705,7 @@ def _validate_mapping(
     schema: Schema,
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
+    active_id_set: set[int],
 ) -> list[ValidationError]:
     """Validate a builtin mapping against required, field, and value rules."""
     if not isinstance(value, dict):
@@ -649,6 +751,7 @@ def _validate_mapping(
                 schema=schema,
                 type_name=reference.name,
                 path=path + (key,),
+                active_id_set=active_id_set,
             )
         )
 
@@ -741,7 +844,18 @@ def _construct_type(
 
     if type_definition.kind == "mapping":
         assert isinstance(constructed, dict)
-        return constructor(**constructed)
+        field_map = {
+            key: child for key, child in constructed.items() if key in type_definition.fields
+        }
+
+        if type_definition.values is None:
+            return constructor(**field_map)
+
+        # Open-ended entries never become keyword arguments; see construct.
+        entry_map = {
+            key: child for key, child in constructed.items() if key not in type_definition.fields
+        }
+        return constructor(entry_map, **field_map)
 
     return constructor(constructed)
 

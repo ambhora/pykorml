@@ -8,7 +8,9 @@ Each case mutates a valid source with Korml punctuation and checks two
 properties that must hold for any input: loading raises nothing but a
 KormlError, and lexing then unlexing gives back the source exactly. Each
 case also dumps a random value, with line breaks, indicators and control
-characters in its strings, and checks that it loads back unchanged.
+characters in its strings, and checks that it loads back unchanged. The
+negative cases put a character that the rules forbid anywhere in a valid
+source, or a lone surrogate into a value, and check that it is refused.
 
 KORML_FUZZ_SEED and KORML_FUZZ_CASES choose the seed and the number of
 cases; a failure names the seed, so it can be reproduced.
@@ -20,7 +22,9 @@ import random
 import pytest
 
 import korml
+import korml.error
 import korml.lexer.file
+import korml.lexer.v1.file
 
 _SEED = int(os.environ.get("KORML_FUZZ_SEED", "0"))
 _CASES = int(os.environ.get("KORML_FUZZ_CASES", "200"))
@@ -47,6 +51,16 @@ _PIECES = (
     "|-",
     "|+",
     ">2",
+    "\u200b",
+    "\u200c",
+    "\u2028",
+    "\x85",
+    "\ud800",
+    '"\\x41"',
+    '"\\e"',
+    "&",
+    "@",
+    "`",
 )
 
 
@@ -62,6 +76,47 @@ def _mutate(rng: random.Random, source: str) -> str:
         else:
             characters[min(index, len(characters) - 1)] = rng.choice(_PIECES)
     return "".join(characters)
+
+
+@pytest.mark.parametrize("seed", _SEEDS)
+def test_seeds_are_conforming_sources(seed: str) -> None:
+    assert korml.loads(seed).to_builtin()
+
+
+_FORBIDDEN = (
+    "\x00",
+    "\x08",
+    "\x0b",
+    "\x1b",
+    "\x7f",
+    "\x85",
+    "\ud800",
+    "\udfff",
+    "\ufffe",
+    "\uffff",
+    "\u2028",
+    "\u2029",
+    "\ufeff",
+    "\u061c",
+    "\u200e",
+    "\u202e",
+    "\u2066",
+    "\u200b",
+    "\u2060",
+)
+
+
+@pytest.mark.parametrize("case", range(_CASES))
+def test_forbidden_character_anywhere_is_refused(case: int) -> None:
+    rng = random.Random(f"{_SEED}:{case}:forbidden")
+    source = rng.choice(_SEEDS)
+    index = rng.randint(0, len(source))
+    char = rng.choice(_FORBIDDEN)
+
+    with pytest.raises(korml.LexError) as error_info:
+        korml.loads(source[:index] + char + source[index:])
+
+    assert error_info.value.code() == "INVALID_CHARACTER", f"seed={_SEED} case={case}"
 
 
 @pytest.mark.parametrize("case", range(_CASES))
@@ -121,7 +176,20 @@ def test_dumped_value_loads_back_unchanged(case: int, version: korml.Version) ->
 
     text = korml.dumps(value, version=version)
 
+    # The output holds no character a source may not hold raw.
+    korml.lexer.v1.file.check_source_text("<dumped>", text)
     assert korml.loads(text).to_builtin() == [value], f"seed={_SEED} case={case}"
+
+
+@pytest.mark.parametrize("case", range(_CASES))
+def test_dumped_value_with_lone_surrogate_is_refused(case: int) -> None:
+    rng = random.Random(f"{_SEED}:{case}:surrogate")
+    text = _random_text(rng)
+    index = rng.randint(0, len(text))
+    value = {"key": text[:index] + chr(rng.randint(0xD800, 0xDFFF)) + text[index:]}
+
+    with pytest.raises(korml.error.EmitError):
+        korml.dumps(value)
 
 
 def _values(value: korml.Value) -> list[korml.Value]:

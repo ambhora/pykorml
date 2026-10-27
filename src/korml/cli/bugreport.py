@@ -9,6 +9,8 @@ import importlib.metadata
 import traceback
 import typing
 
+import korml.error
+
 
 class AnsiCode(enum.Enum):
     RESET = "\033[0m"
@@ -129,15 +131,27 @@ class InternalFailureReport:
                 ),
                 self.styler.style("## Error Summary", AnsiCode.CYAN, AnsiCode.BOLD),
                 f"- Exception type: {type(self.exc).__name__}",
-                f"- Exception message: {self.exc}",
+                f"- Exception message: {_escape_lines(str(self.exc))}",
                 "",
                 self.styler.style("## Traceback", AnsiCode.CYAN, AnsiCode.BOLD),
                 "```text",
-                traceback.format_exc().rstrip(),
+                _escape_lines(traceback.format_exc().rstrip()),
                 "```",
                 self.styler.style("----- END KORML BUG REPORT -----", AnsiCode.CYAN, AnsiCode.BOLD),
             ]
         )
+
+
+def _escape_lines(text: str) -> str:
+    """
+    Escape the unprintable characters of each line of text, keeping the line breaks.
+
+    An exception message, and the traceback that repeats it, may quote the
+    input that caused the failure, so they are untrusted text: a terminal
+    control in them must not reach the terminal raw, as in every other
+    diagnostic (see korml.error.escape_controls).
+    """
+    return "\n".join(korml.error.escape_controls(line) for line in text.split("\n"))
 
 
 def render_internal_failure_report(exc: Exception, stream: typing.Any) -> str:

@@ -94,5 +94,37 @@
     },
     "type": "NEWLINE",
     "value": "\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 4,
+        "line": 4,
+        "offset": 38
+      },
+      "start": {
+        "column": 1,
+        "line": 4,
+        "offset": 35
+      }
+    },
+    "type": "DOC_END",
+    "value": "..."
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 5,
+        "offset": 39
+      },
+      "start": {
+        "column": 4,
+        "line": 4,
+        "offset": 38
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\n"
   }
 ]

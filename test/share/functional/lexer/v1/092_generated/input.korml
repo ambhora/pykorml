@@ -1,40 +1,18 @@
 %!korml version 1.0
 ---
-entity_0_0:
-  key_0_0: value_0  # roundtrip comment
-  key_0_1: {key_1_0: 'single value 1000', key_1_1: 'single value 1001', key_1_2: "literal line one 1002\nliteral line two 1002\n"}  # generated comment
-entity_0_1:
+entity_0_0: 'single value 0'
+entity_0_1: "double value 1"
 
-- "double value 1000"
-- {key_1001_0: "folded line one 1001000\nfolded line two 1001000\n"}
-- |
-  literal line one 1002
-  literal line two 1002
+entity_0_2: >
+  folded line one 2
+
+  folded line two 2
+entity_0_3: [value_3000, {key_3001_0: "double value 3001000", key_3001_1: ["literal line one 3001001000\nliteral line two 3001001000\n"], key_3001_2: "literal line one 3001002\nliteral line two 3001002\n"}]  # lexer should preserve this
+entity_0_4: "double value 4"
+entity_0_5: {key_5_0: "double value 5000", key_5_1: "literal line one 5001\nliteral line two 5001\n"}
+entity_0_6: value_6  # fuzz comment
 # generated comment
-entity_0_2:
-- 'single value 2000'  # fuzz comment
-- - 'single value 2001000'
-  # fuzz comment
-  - 'single value 2001001'  # generated comment
-- value_2002
-entity_0_3:
-
-  key_3_0:
-  - |
-    literal line one 3000000
-    literal line two 3000000
-  # fuzz comment
-  - ["folded line one 3000001000\nfolded line two 3000001000\n"]
-  - >
-    folded line one 3000002
-
-    folded line two 3000002
-
-  key_3_1: value_3001
-entity_0_4: >
-  folded line one 4
-
-
-
-  folded line two 4
+entity_0_7: |
+  literal line one 7
+  literal line two 7
 ...

@@ -80,7 +80,7 @@ def _assert_lex_error(
 def test_debug_output_from_public_lex(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    source = "%!korml version 1.0\n---\nkey: value\n"
+    source = "%!korml version 1.0\n---\nkey: value\n...\n"
 
     korml.lexer.v1.file.lex(SOURCE_NAME, source, debug=True)
 
@@ -180,13 +180,13 @@ def test_debug_lexer_result_no_output_when_debug_disabled(
             korml.lexer.v1.file._lex_folded_block_scalar,
             "x",
             korml.lexer.v1.file.LexerMode.VALUE_START,
-            "_lex_folded_block_scalar() called without leading '>'",
+            "_lex_block_scalar() called without leading '>'",
         ),
         (
             korml.lexer.v1.file._lex_literal_block_scalar,
             "x",
             korml.lexer.v1.file.LexerMode.VALUE_START,
-            "_lex_literal_block_scalar() called without leading '|'",
+            "_lex_block_scalar() called without leading '|'",
         ),
         (
             korml.lexer.v1.file._lex_flow_mapping_end,
@@ -463,7 +463,7 @@ def test_read_until_newline_handles_crlf() -> None:
 
 
 def test_unlex_roundtrip() -> None:
-    source = "%!korml version 1.0\n---\nkey: value\n"
+    source = "%!korml version 1.0\n---\nkey: value\n...\n"
 
     file = korml.lexer.v1.file.lex(SOURCE_NAME, source)
 

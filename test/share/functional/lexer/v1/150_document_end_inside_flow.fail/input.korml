@@ -1,0 +1,5 @@
+%!korml version 1.0
+---
+document_end_inside_flow: [...]
+key: value
+...

@@ -21,33 +21,74 @@ entire token stream upfront.
 ## Layout Grammar
 
 The layout grammar defines how physical source lines are interpreted as a
-hierarchical block structure. It is specified in terms of indentation levels and
-the layout tokens `INDENT`, `DEDENT`, `BLANK`, and `UNLEXED`.
+hierarchical block structure. It is applied to each document body separately
+(v0: the whole source; v1: the lines between `---` and `...`) and adds the layout
+tokens `INDENT`, `DEDENT` and `NEWLINE` to the token stream.
 
 The layout grammar is not context-free over raw characters, because the meaning
-of a line depends on the indentation stack established by previous non-blank
-lines. Therefore, the grammar is specified operationally.
+of a line depends on the indentation stack established by previous lines.
+Therefore, the grammar is specified operationally.
 
 ### Layout Tokens
 
 | Token | Meaning |
 |---|---|
-| `INDENT` | Opens a nested layout block |
-| `DEDENT` | Closes one nested layout block |
-| `BLANK` | Preserved blank or whitespace-only physical line |
-| `UNLEXED` | Non-blank physical line content, excluding leading indentation |
+| `INDENT` | Opens a nested layout level |
+| `DEDENT` | Closes one nested layout level |
+| `NEWLINE` | Ends a content line |
+
+### Lines That Take Part
+
+Blank lines (empty, whitespace only, or whitespace and a comment), the content
+lines of a block scalar, and the continuation lines of a flow collection take no
+part in layout. Every other line is a *content line*. Its indentation `c` is its
+number of leading spaces; a tab in the leading whitespace of a content line is an
+error.
 
 ### Indentation Rules
 
-1. Indentation is measured as the number of leading spaces.
-2. Tabs are not valid indentation characters.
-3. Blank lines produce `BLANK` but do not change the current indentation level.
-4. The indentation width is inferred from the first indented non-blank line.
-5. Each non-blank line indentation must be a multiple of the inferred width.
-6. An increase in indentation opens a new layout block and emits `INDENT`.
-7. A decrease in indentation closes layout blocks and emits one or more `DEDENT`.
-8. A dedent is valid only if it returns to a previously established indentation level.
-9. End-of-file closes all remaining open layout blocks.
+The state is a stack `S` of columns, initially `[0]`, and the indentation width
+`w`, initially unknown. For each content line, before its tokens:
+
+1. If `c > top(S)`: if `w` is unknown, set `w = c - top(S)`. Then `c` must equal
+   `top(S) + w`. Push `c` and emit `INDENT`.
+2. If `c < top(S)`: pop and emit `DEDENT` while `top(S) > c`. Then `top(S)` must
+   equal `c`: a dedent returns only to an open level.
+3. Otherwise nothing.
+
+The width `w` is inferred once per document, from its first indented content
+line (or from the first content line of a block scalar, if that comes first), and
+is any positive integer. Every level of the document then indents by exactly `w`.
+The root node starts at column 0.
+
+Within a line, a sequence dash is followed by exactly one space, a line break, a
+comment (after whitespace) or the end of input. When one space and further content
+follow the dash on the same line (a *compact entry*, such as `- key: value` or
+`- - a`), that content starts at column `d + 2`, where `d` is the column of the
+dash: push `d + 2` and emit `INDENT` right after the dash. Compact entries nest,
+and a compact level does not set `w`. A compact mapping continues on the next
+lines at column `d + 2`:
+
+```yaml
+- key: value
+  other: value
+- - a
+  - b
+```
+
+At the end of each content line emit `NEWLINE`, also at the end of input if the
+last content line has no line break. At the end of the document body, pop every
+level above 0, emitting one `DEDENT` each.
+
+A sequence that is the value of a key is indented by exactly `w`, like any other
+block value; a sequence at the column of its key is an error:
+
+```yaml
+key:
+  - a     # valid
+other:
+- a       # error
+```
 
 
 ## Lexer Specification
