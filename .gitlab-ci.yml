@@ -19,8 +19,10 @@ include:
   - template: Jobs/SAST-IaC.gitlab-ci.yml
   - template: Jobs/Secret-Detection.gitlab-ci.yml
 
+# Images are pinned by digest, so a moved tag cannot change what runs; the
+# tag names the release. Update both together.
 default:
-  image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+  image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim@sha256:4f5d923c9dcea037f57bda425dd209f3ec643da2f0b74227f68d09dab0b3bb36
 
 variables:
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
@@ -174,13 +176,13 @@ build-docs:
   # job needs git, the full history and the branches. It documents the version
   # named "main" from this checkout instead of origin/main: an MR pipeline
   # then checks the API documentation of the code under review, and only the
-  # pipeline on main publishes it.
+  # pipeline on main publishes it. The image without -slim ships git, so the
+  # job installs no unpinned package.
+  image: ghcr.io/astral-sh/uv:python3.11-bookworm@sha256:58683a39536f1f4ed2e1dd79cf155edccfb47731aba8964bd0312aac942126cf
   variables:
     GIT_DEPTH: 0
     CPDOCS_CURRENT_BRANCH: main
   before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq --no-install-recommends git
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - git fetch --tags origin '+refs/heads/*:refs/remotes/origin/*'
     - uv sync --locked --group docs
@@ -204,8 +206,10 @@ publish-package:
     UV_PUBLISH_USERNAME: gitlab-ci-token
   script:
     - UV_PUBLISH_PASSWORD="$CI_JOB_TOKEN" uv publish dist/*
+  # Only a protected tag publishes: anyone who can push an unprotected tag
+  # could otherwise publish a package under the project's name.
   rules:
-    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED == "true"
 
 deploy-pages:
   stage: deploy
