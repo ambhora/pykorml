@@ -25,13 +25,21 @@ __all__ = [
 ]
 
 ErrorCode = v1.ErrorCode
+"""The stable diagnostic codes; see korml.schema.v1.ErrorCode."""
 ValidationError = v1.ValidationError
+"""A schema diagnostic; see korml.schema.v1.ValidationError."""
 SchemaError = v1.SchemaError
+"""A malformed schema; see korml.schema.v1.SchemaError."""
 ConstructionError = v1.ConstructionError
+"""A failed construction; see korml.schema.v1.ConstructionError."""
 InvalidValueError = v1.InvalidValueError
+"""A value that cannot be validated; see korml.schema.v1.InvalidValueError."""
 TypeReference = v1.TypeReference
+"""A reference to a named type; see korml.schema.v1.TypeReference."""
 TypeDefinition = v1.TypeDefinition
+"""A compiled named type; see korml.schema.v1.TypeDefinition."""
 Schema = v1.Schema
+"""A compiled schema; see korml.schema.v1.Schema."""
 
 
 def compile_schema(

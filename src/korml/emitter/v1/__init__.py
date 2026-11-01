@@ -22,9 +22,14 @@ __all__ = ["ErrorCode", "emit"]
 
 
 class ErrorCode(str, enum.Enum):
+    """The codes of the errors the emitter reports."""
+
     UNSUPPORTED_VALUE = "UNSUPPORTED_VALUE"
+    """A value no source can hold, such as a string with a lone surrogate."""
     KEY_TOO_LONG = "KEY_TOO_LONG"
+    """A key longer than MAX_KEY_LENGTH when written double-quoted."""
     TOO_DEEP = "TOO_DEEP"
+    """Collections nested deeper than max_depth."""
 
     def __str__(self) -> str:
         return self.value
@@ -32,6 +37,7 @@ class ErrorCode(str, enum.Enum):
 
 # The longest key a source may hold, in characters of source text.
 MAX_KEY_LENGTH = 1024
+"""The longest key a source may hold, in characters of source text."""
 
 # The indentation width of every emitted document.
 _INDENT_WIDTH = 2

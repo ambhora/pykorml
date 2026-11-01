@@ -151,6 +151,7 @@ class KormlError(Exception):
 # ``korml.KormlError``; keeping ``korml.error.BaseError`` avoids breaking
 # callers that already used the namespaced support module directly.
 BaseError = KormlError
+"""The former name of KormlError, kept for callers of this module."""
 
 
 class BugError(KormlError):
@@ -176,6 +177,7 @@ class BugError(KormlError):
         span: korml.core.Span | None = None,
         source_line: str | None = None,
     ):
+        """Initialize the error for a bug at location, with what is known of the input."""
         # The summary is not stored as self.message, which would hide the
         # message() method every korml error has.
         self.summary = message

@@ -62,8 +62,11 @@ class Position:
     """
 
     line: int
+    """The line, from 1."""
     column: int
+    """The column, from 1, in code points."""
     offset: int
+    """The offset from the start of the input, from 0, in code points."""
 
     def to_dict(self) -> dict:
         """
@@ -83,7 +86,9 @@ class Span:
     """
 
     start: Position
+    """The position of the first character."""
     end: Position
+    """The position after the last character."""
 
     @classmethod
     def empty(cls) -> "Span":
@@ -157,6 +162,7 @@ def current_line(*, stacklevel: int = 1) -> dict:
 
 
 def make_position(*, line: int, column: int, offset: int) -> Position:
+    """Return the position with these coordinates."""
     return Position(line=line, column=column, offset=offset)
 
 
@@ -169,6 +175,7 @@ def make_span(
     end_column: int,
     end_offset: int,
 ) -> Span:
+    """Return the span between two positions given by their coordinates."""
     return Span(
         start=make_position(line=start_line, column=start_column, offset=start_offset),
         end=make_position(line=end_line, column=end_column, offset=end_offset),
@@ -176,6 +183,7 @@ def make_span(
 
 
 def advance_position(position: Position, value: str) -> Position:
+    """Return the position after value, which starts at position."""
     line = position.line
     column = position.column
     offset = position.offset

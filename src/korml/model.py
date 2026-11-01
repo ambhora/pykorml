@@ -27,37 +27,59 @@ __all__ = [
 
 
 class Version(str, enum.Enum):
+    """The versions of the Korml language."""
+
     unknown = "unknown"
+    """No version, the state of a value built without one."""
     v0 = "v0"
+    """Korml v0, the single-document source form."""
     v1 = "v1"
+    """Korml v1, with a version directive and document markers."""
 
 
 class Style(str, enum.Enum):
+    """How a collection is written."""
+
     auto = "auto"
+    """No particular style, the state of a value built in code."""
     flow = "flow"
+    """On one line, between brackets or braces."""
     block = "block"
+    """On lines of its own, by indentation."""
 
 
 class GenericToken(typing.Protocol):
+    """What the model needs of a token."""
+
     type: object
+    """The kind of token."""
     value: str
+    """The exact source text of the token."""
     span: korml.core.Span
+    """Where the token is."""
 
 
 ConcreteToken = typing.TypeVar("ConcreteToken", bound=GenericToken)
+"""The token type of a model, such as korml.lexer.v1.Token."""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class CST(typing.Generic[ConcreteToken]):
+    """The concrete tokens a value was read from."""
+
     version: Version = Version.unknown
+    """The language version of the tokens."""
     token_array: tuple[ConcreteToken, ...] = ()
+    """The tokens, in source order."""
 
     @property
     def source(self) -> str:
+        """The source text of the tokens."""
         return "".join(token.value for token in self.token_array)
 
     @property
     def span(self) -> korml.core.Span:
+        """The span from the first token to the last, or an empty span if there are none."""
         if not self.token_array:
             return korml.core.Span.empty()
 
@@ -154,10 +176,13 @@ def _to_builtin(value: "Value[ConcreteToken]", *, max_depth: int | None) -> obje
 
 @dataclasses.dataclass(slots=True, kw_only=True)
 class Value(typing.Generic[ConcreteToken]):
+    """A value of a document; base class of Scalar, Sequence, Mapping and Empty."""
+
     cst: CST[ConcreteToken] = dataclasses.field(
         default_factory=CST,
         compare=False,
     )
+    """The tokens the value was read from; they do not count when comparing values."""
 
     def __post_init__(self) -> None:
         _check_value_array_version(
@@ -170,22 +195,27 @@ class Value(typing.Generic[ConcreteToken]):
 
     @property
     def child_array(self) -> tuple["Value[ConcreteToken]", ...]:
+        """The values directly inside this one."""
         return ()
 
     @property
     def version(self) -> Version:
+        """The language version of the value."""
         return self.cst.version
 
     @property
     def token_array(self) -> tuple[ConcreteToken, ...]:
+        """The concrete tokens of the value."""
         return self.cst.token_array
 
     @property
     def source(self) -> str:
+        """The source text of the value."""
         return self.cst.source
 
     @property
     def span(self) -> korml.core.Span:
+        """The span of the value."""
         return self.cst.span
 
     def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> object:
@@ -202,37 +232,49 @@ class Value(typing.Generic[ConcreteToken]):
         self,
         style: Style,
     ) -> "Value[ConcreteToken]":
+        """Return the value in another style; no version implements this yet."""
         raise NotImplementedError(
             "flow/block CST conversion must be implemented by the "
             "version-specific lexer/CST generator"
         )
 
     def to_flow(self) -> "Value[ConcreteToken]":
+        """Return the value in flow style; see with_style."""
         return self.with_style(Style.flow)
 
     def to_block(self) -> "Value[ConcreteToken]":
+        """Return the value in block style; see with_style."""
         return self.with_style(Style.block)
 
 
 @dataclasses.dataclass(slots=True)
 class Scalar(Value[ConcreteToken]):
+    """A scalar: a string and the tokens it was read from."""
+
     value: str = ""
+    """The string the scalar denotes. Every Korml scalar is text."""
 
     def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> str:
+        """Return the string of the scalar; max_depth is only validated."""
         korml._limits.check_max_depth(max_depth)
         return self.value
 
 
 @dataclasses.dataclass(slots=True)
 class Sequence(Value[ConcreteToken], collections.abc.Sequence[Value[ConcreteToken]]):
+    """A sequence of values."""
+
     value_array: list[Value[ConcreteToken]] = dataclasses.field(default_factory=list)
+    """The values, in order."""
     style: Style = dataclasses.field(
         default=Style.auto,
         compare=False,
     )
+    """How the sequence is written; it does not count when comparing values."""
 
     @property
     def child_array(self) -> tuple[Value[ConcreteToken], ...]:
+        """The values of the sequence."""
         return tuple(self.value_array)
 
     def __len__(self) -> int:
@@ -251,6 +293,7 @@ class Sequence(Value[ConcreteToken], collections.abc.Sequence[Value[ConcreteToke
         self,
         value: Value[ConcreteToken],
     ) -> None:
+        """Add a value at the end, refusing another version or an Empty."""
         if not isinstance(value, Value):
             raise TypeError("append() only accepts KORML values")
 
@@ -265,19 +308,25 @@ class Sequence(Value[ConcreteToken], collections.abc.Sequence[Value[ConcreteToke
     def to_builtin(
         self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH
     ) -> list[object]:
+        """Return the sequence as a list; see Value.to_builtin."""
         return typing.cast(list[object], _to_builtin(self, max_depth=max_depth))
 
 
 @dataclasses.dataclass(slots=True)
 class Mapping(Value[ConcreteToken], collections.abc.Mapping[str, Value[ConcreteToken]]):
+    """A mapping from strings to values, in source order."""
+
     value_map: dict[str, Value[ConcreteToken]] = dataclasses.field(default_factory=dict)
+    """The entries, in order."""
     style: Style = dataclasses.field(
         default=Style.auto,
         compare=False,
     )
+    """How the mapping is written; it does not count when comparing values."""
 
     @property
     def child_array(self) -> tuple[Value[ConcreteToken], ...]:
+        """The values of the mapping."""
         return tuple(self.value_map.values())
 
     def __len__(self) -> int:
@@ -303,6 +352,7 @@ class Mapping(Value[ConcreteToken], collections.abc.Mapping[str, Value[ConcreteT
         key: str,
         value: Value[ConcreteToken],
     ) -> None:
+        """Set the value of key, refusing another version or an Empty."""
         if not isinstance(key, str):
             raise TypeError("mapping keys must be strings")
 
@@ -320,6 +370,7 @@ class Mapping(Value[ConcreteToken], collections.abc.Mapping[str, Value[ConcreteT
     def to_builtin(
         self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH
     ) -> dict[str, object]:
+        """Return the mapping as a dict; see Value.to_builtin."""
         return typing.cast(dict[str, object], _to_builtin(self, max_depth=max_depth))
 
 
@@ -343,18 +394,24 @@ class Empty(Value[ConcreteToken]):
     """
 
     def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> None:
+        """Return None; max_depth is only validated."""
         korml._limits.check_max_depth(max_depth)
         return None
 
 
 @dataclasses.dataclass(slots=True)
 class Stream(typing.Generic[ConcreteToken]):
+    """The documents of a source, with every token it was read from."""
+
     document_array: list[Value[ConcreteToken]] = dataclasses.field(default_factory=list)
+    """The documents, an Empty for each document without a root node."""
     filename: str = ""
+    """The name of the source."""
     cst: CST[ConcreteToken] = dataclasses.field(
         default_factory=CST,
         compare=False,
     )
+    """Every token of the source."""
 
     def __post_init__(self) -> None:
         _check_value_array_version(
@@ -364,18 +421,22 @@ class Stream(typing.Generic[ConcreteToken]):
 
     @property
     def version(self) -> Version:
+        """The language version of the source."""
         return self.cst.version
 
     @property
     def token_array(self) -> tuple[ConcreteToken, ...]:
+        """Every token of the source."""
         return self.cst.token_array
 
     @property
     def source(self) -> str:
+        """The source text, exactly as it was read."""
         return self.cst.source
 
     @property
     def span(self) -> korml.core.Span:
+        """The span of the source."""
         return self.cst.span
 
     def __len__(self) -> int:
@@ -388,6 +449,7 @@ class Stream(typing.Generic[ConcreteToken]):
         self,
         value: Value[ConcreteToken],
     ) -> None:
+        """Add a document, refusing a value of another version."""
         if not isinstance(value, Value):
             raise TypeError("append() only accepts KORML values")
 

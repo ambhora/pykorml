@@ -13,34 +13,52 @@ import korml.error
 
 
 class AnsiCode(enum.Enum):
+    """The terminal escape sequences the report uses."""
+
     RESET = "\033[0m"
+    """End every style."""
     BOLD = "\033[1m"
+    """Bold text."""
     RED = "\033[31m"
+    """Red text."""
     YELLOW = "\033[33m"
+    """Yellow text."""
     CYAN = "\033[36m"
+    """Cyan text."""
 
 
 class DiagnosticExitCode(enum.IntEnum):
+    """The exit statuses of the command line beyond success and user error."""
+
     # sysexits.h: an internal software error. argparse uses 2 for invalid
     # usage, so an internal error needs another status.
     INTERNAL_ERROR = 70
+    """The status of an internal failure, a bug in korml."""
 
 
 @dataclasses.dataclass(frozen=True)
 class ColorPolicy:
+    """Whether the report may use terminal escape sequences."""
+
     enabled: bool
+    """Whether styles are applied."""
 
     @classmethod
     def from_stream(cls, stream: typing.Any) -> "ColorPolicy":
+        """Return the policy for stream: colour only on a terminal."""
         enabled = hasattr(stream, "isatty") and stream.isatty()
         return cls(enabled=enabled)
 
 
 @dataclasses.dataclass(frozen=True)
 class TextStyler:
+    """Applies terminal styles to text, as a color policy allows."""
+
     color_policy: ColorPolicy
+    """The policy that decides whether styles are applied."""
 
     def style(self, text: str, *styles: AnsiCode) -> str:
+        """Return text with styles applied, or unchanged if colour is off."""
         if not self.color_policy.enabled:
             return text
 
@@ -73,14 +91,22 @@ def issues_url() -> str | None:
 
 @dataclasses.dataclass(frozen=True)
 class BugReportConfig:
+    """What the report needs to know about the project."""
+
     url: str | None = dataclasses.field(default_factory=issues_url)
+    """The issue tracker, or None if the package metadata names none."""
 
 
 @dataclasses.dataclass(frozen=True)
 class InternalFailureReport:
+    """The report printed for an exception that korml did not expect."""
+
     exc: Exception
+    """The exception being reported."""
     styler: TextStyler
+    """The styles of the report."""
     config: BugReportConfig = dataclasses.field(default_factory=BugReportConfig)
+    """What the report needs to know about the project."""
 
     def _where_to_report(self) -> str:
         if self.config.url is not None:
@@ -93,6 +119,7 @@ class InternalFailureReport:
         )
 
     def render(self) -> str:
+        """Return the report as text, with untrusted text escaped."""
         return "\n".join(
             [
                 self.styler.style(
@@ -150,6 +177,7 @@ def _escape_lines(text: str) -> str:
 
 
 def render_internal_failure_report(exc: Exception, stream: typing.Any) -> str:
+    """Return the report for exc, styled for the terminal stream if it is one."""
     color_policy = ColorPolicy.from_stream(stream)
     styler = TextStyler(color_policy=color_policy)
     report = InternalFailureReport(exc=exc, styler=styler)

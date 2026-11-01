@@ -14,6 +14,7 @@ import korml.parser.v1 as parser_v1
 from korml.lexer import v0 as lexer_v0
 
 ErrorCode = parser_v1.ErrorCode
+"""The codes of the errors the parser reports, shared with v1."""
 
 __all__ = ["ErrorCode", "parse"]
 

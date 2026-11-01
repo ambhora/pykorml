@@ -63,6 +63,7 @@ _FORBIDDEN_CHARACTER_PATTERN = re.compile(
 # block scalars and comments may hold them raw; in a plain scalar or a key
 # they would make two different strings look the same.
 JOINER_CHARACTER_SET = frozenset("‌‍")
+"""The zero-width joiners, allowed raw except in plain scalars and keys."""
 
 
 def _describe_character(char: str) -> str:
@@ -194,7 +195,9 @@ class SourceFile:
     """
 
     filename: str
+    """The name of the source, for diagnostics."""
     value: str
+    """The complete source text."""
 
 
 class LexerMode(enum.Enum):
@@ -208,10 +211,14 @@ class LexerMode(enum.Enum):
     """
 
     VERSION_HEADER = "VERSION_HEADER"
+    """Looking for the version directive."""
     STREAM = "STREAM"
+    """Between documents, looking for a document start marker."""
 
     VALUE_START = "VALUE_START"
+    """Inside a document, outside any flow collection."""
     FLOW_VALUE_START = "FLOW_VALUE_START"
+    """Inside a flow collection."""
 
 
 @dataclasses.dataclass
@@ -245,11 +252,17 @@ class LexerState:
     """
 
     mode: LexerMode
+    """What the lexer expects next."""
     position: korml.core.Position
+    """Where the lexer is in the source."""
     flow_nesting_level: int
+    """The number of flow collections open here."""
     source_file: SourceFile
+    """The source being lexed."""
     version: korml.model.Version = korml.model.Version.unknown
+    """The language version; unknown until the directive is read."""
     debug: bool = False  # Set to True to enable debug output from the lexer.
+    """Whether to trace the lexer on standard error."""
 
 
 def _advance_position(
@@ -527,6 +540,7 @@ def lex(
     *,
     max_tokens: int | None = None,
 ) -> korml.lexer.v1.File:
+    """Tokenize a complete v1 source, refusing more than max_tokens tokens."""
     check_source_text(str(filename), input_text)
 
     lexer_state = LexerState(

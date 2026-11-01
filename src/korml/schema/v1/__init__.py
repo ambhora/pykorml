@@ -41,17 +41,29 @@ class ErrorCode(str, enum.Enum):
     """Stable diagnostic codes emitted by schema validation and construction."""
 
     INVALID_SCHEMA = "INVALID_SCHEMA"
+    """A malformed or inconsistent schema."""
     UNKNOWN_TYPE = "UNKNOWN_TYPE"
+    """A reference to a type the schema does not declare."""
     WRONG_KIND = "WRONG_KIND"
+    """A value that is not the scalar, sequence or mapping its type wants."""
     MISSING_FIELD = "MISSING_FIELD"
+    """A required field that is absent."""
     UNKNOWN_FIELD = "UNKNOWN_FIELD"
+    """A field the type does not declare."""
     INVALID_SCALAR = "INVALID_SCALAR"
+    """A scalar that is not the integer, float or boolean its type wants."""
     OUT_OF_RANGE = "OUT_OF_RANGE"
+    """An integer below the minimum or above the maximum of its type."""
     INVALID_ENUM_VALUE = "INVALID_ENUM_VALUE"
+    """A scalar that is none of the values of its enum."""
     CONSTRUCTION_FAILED = "CONSTRUCTION_FAILED"
+    """A value that failed validation, or a constructor that failed."""
     TOO_DEEP = "TOO_DEEP"
+    """A value nested deeper than max_depth."""
     CYCLIC_VALUE = "CYCLIC_VALUE"
+    """A container that contains itself."""
     EMPTY_DOCUMENT = "EMPTY_DOCUMENT"
+    """An empty document, for a root type that is not of kind any."""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -59,8 +71,11 @@ class ValidationError:
     """A structured schema diagnostic at a builtin-value path."""
 
     code: ErrorCode
+    """What is wrong."""
     path: tuple[str | int, ...]
+    """Where it is: the keys and indices from the root to the value."""
     message: str
+    """What is wrong, for a reader; it may quote the document."""
 
 
 class SchemaError(korml.error.KormlError, ValueError):
@@ -71,6 +86,7 @@ class SchemaError(korml.error.KormlError, ValueError):
     """
 
     def __init__(self, message: str) -> None:
+        """Initialize the error, escaping what message quotes from the schema."""
         # Schema messages are one line and interpolate names from the schema
         # document, which may hold control characters.
         super().__init__(
@@ -123,6 +139,7 @@ class TypeReference:
     """A reference to a named schema type."""
 
     name: str
+    """The name of the type."""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -130,15 +147,25 @@ class TypeDefinition:
     """A compiled named schema type and its builtin-shape rules."""
 
     name: str
+    """The name of the type."""
     kind: str
+    """One of any, scalar, sequence, mapping or enum."""
     scalar: str = "string"
+    """For a scalar type: string, integer, float or boolean."""
     required: tuple[str, ...] = ()
+    """For a mapping type: the fields that must be present."""
     fields: dict[str, TypeReference] = dataclasses.field(default_factory=dict)
+    """For a mapping type: the type of each declared field."""
     items: TypeReference | None = None
+    """For a sequence type: the type of its items."""
     values: TypeReference | None = None
+    """For a mapping type: the type of the entries that are not declared fields."""
     enum: tuple[str, ...] = ()
+    """For an enum type: the values allowed."""
     minimum: int | None = None
+    """For an integer scalar: the smallest value allowed."""
     maximum: int | None = None
+    """For an integer scalar: the largest value allowed."""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -146,8 +173,11 @@ class Schema:
     """A compiled KORML schema with a root type and named type definitions."""
 
     version: str
+    """The schema language, korml.schema.v1."""
     root: TypeReference
+    """The type of a document."""
     types: dict[str, TypeDefinition]
+    """The named types."""
 
 
 def compile_schema(value: Builtin) -> Schema:

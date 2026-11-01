@@ -13,6 +13,7 @@ import korml.error
 
 
 def first_level_lexer_parser(sp: argparse.ArgumentParser) -> None:
+    """Add the arguments of the lex subcommand to the parser sp."""
     sp.add_argument(
         "--input",
         required=True,
@@ -41,6 +42,7 @@ def first_level_lexer_parser(sp: argparse.ArgumentParser) -> None:
 
 
 def top_level_parser() -> argparse.ArgumentParser:
+    """Return the argument parser of the korml command line."""
     parser = argparse.ArgumentParser(
         prog="korml",
         description="korml command line tools",
@@ -56,6 +58,7 @@ def top_level_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Run the korml command line and return its exit status."""
     parser = top_level_parser()
     args = parser.parse_args(None if len(sys.argv) > 1 else ["-h"])
 
@@ -86,6 +89,7 @@ def main() -> int:
 
 
 def handle_uncaught_exception(exc: Exception) -> int:
+    """Print the internal failure report for exc and return its exit status."""
     report = korml.cli.bugreport.render_internal_failure_report(exc=exc, stream=sys.stderr)
     print(report, file=sys.stderr)
     return korml.cli.bugreport.DiagnosticExitCode.INTERNAL_ERROR

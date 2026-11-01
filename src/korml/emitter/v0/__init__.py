@@ -14,8 +14,12 @@ __all__ = ["ErrorCode", "emit"]
 
 
 class ErrorCode(str, enum.Enum):
+    """The codes of the v0 emitter."""
+
     UNSUPPORTED_VALUE = "UNSUPPORTED_VALUE"
+    """Reserved: nothing reports this code yet."""
     MULTIPLE_DOCUMENTS = "MULTIPLE_DOCUMENTS"
+    """Reserved: nothing reports this code yet. A stream of several documents is a ValueError."""
 
     def __str__(self) -> str:
         return self.value

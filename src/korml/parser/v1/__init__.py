@@ -17,20 +17,36 @@ __all__ = ["ErrorCode", "parse"]
 
 
 class ErrorCode(str, enum.Enum):
+    """The codes of the errors the parser reports."""
+
     EXPECTED_VALUE = "EXPECTED_VALUE"
+    """A place that needs a value holds something else, or nothing."""
     EXPECTED_SCALAR = "EXPECTED_SCALAR"
+    """A flow mapping key that is not a scalar."""
     EXPECTED_SEQUENCE = "EXPECTED_SEQUENCE"
+    """A document that must be a sequence is not; only private helpers report it."""
     EXPECTED_MAPPING = "EXPECTED_MAPPING"
+    """A document that must be a mapping is not; only private helpers report it."""
     EXPECTED_MAPPING_COLON = "EXPECTED_MAPPING_COLON"
+    """A mapping key without its ':'."""
     UNEXPECTED_CONTENT = "UNEXPECTED_CONTENT"
+    """Content the grammar does not allow where it stands."""
     DUPLICATE_KEY = "DUPLICATE_KEY"
+    """A mapping key that repeats, compared as decoded strings."""
     TOO_DEEP = "TOO_DEEP"
+    """Collections nested deeper than max_depth."""
     TOO_COMPLEX = "TOO_COMPLEX"
+    """A source that needs more parser work than max_work."""
     INVALID_ESCAPE = "INVALID_ESCAPE"
+    """A double-quoted scalar with an escape the rules do not define."""
     INVALID_INDENTATION = "INVALID_INDENTATION"
+    """A line whose indentation does not fit the layout rules."""
     INVALID_BLOCK_SCALAR = "INVALID_BLOCK_SCALAR"
+    """A block scalar whose lines break the indentation rules."""
     INVALID_KEY = "INVALID_KEY"
+    """A key that is too long or holds a raw zero-width joiner."""
     MISSING_DOCUMENT_END = "MISSING_DOCUMENT_END"
+    """A document without its '...'."""
 
     def __str__(self) -> str:
         return self.value
@@ -39,9 +55,11 @@ class ErrorCode(str, enum.Enum):
 # The default deepest nesting of collections the parser accepts; parse()
 # takes the limit as max_depth. See korml._limits.
 MAX_NESTING_DEPTH = korml._limits.MAX_NESTING_DEPTH
+"""The default deepest nesting accepted; see korml._limits."""
 
 # The longest key, in characters of source text, quotes included.
 MAX_KEY_LENGTH = 1024
+"""The longest key, in characters of source text, quotes included."""
 
 _SCALAR_TOKEN_TYPE_SET = {
     korml.lexer.v1.TokenType.PLAIN_SCALAR,
