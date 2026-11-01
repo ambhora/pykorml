@@ -12,6 +12,7 @@ import typing
 
 import korml._limits
 import korml.error
+import korml.model
 
 __all__ = [
     "ErrorCode",
@@ -50,6 +51,7 @@ class ErrorCode(str, enum.Enum):
     CONSTRUCTION_FAILED = "CONSTRUCTION_FAILED"
     TOO_DEEP = "TOO_DEEP"
     CYCLIC_VALUE = "CYCLIC_VALUE"
+    EMPTY_DOCUMENT = "EMPTY_DOCUMENT"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -196,29 +198,80 @@ def compile_schema(value: Builtin) -> Schema:
     return schema
 
 
-def validate(value: Builtin, schema: Schema) -> list[ValidationError]:
+@dataclasses.dataclass(slots=True)
+class _Walk:
+    """What validation tracks along the path through a value."""
+
+    max_depth: int | None
+    active_id_set: set[int] = dataclasses.field(default_factory=set)
+
+
+def _is_empty_document(value: object) -> bool:
+    return value is None or isinstance(value, korml.model.Empty)
+
+
+def validate(
+    value: Builtin | None,
+    schema: Schema,
+    *,
+    max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
+) -> list[ValidationError]:
     """
     Validate a KORML builtin value against the schema root type.
 
     Returns the list of validation errors, empty if the value is valid.
-    Raises InvalidValueError for a value nested deeper than
-    korml._limits.MAX_NESTING_DEPTH or one that contains itself.
+
+    An empty document, which to_builtin gives as None (or an Empty), has no
+    value: it is valid only if the root type is of kind any, and otherwise
+    gives one EMPTY_DOCUMENT error.
+
+    max_depth is the deepest nesting of collections validated. Raises
+    InvalidValueError for a value nested deeper or one that contains
+    itself; with max_depth None, nesting too deep for Python's recursion
+    limit raises it with the code TOO_DEEP too.
     """
     _check_schema_type(schema)
-    return _validate_type(
-        value=value,
-        schema=schema,
-        type_name=schema.root.name,
+    korml._limits.check_max_depth(max_depth)
+
+    if _is_empty_document(value):
+        if schema.types[schema.root.name].kind == "any":
+            return []
+
+        return [
+            ValidationError(
+                code=ErrorCode.EMPTY_DOCUMENT,
+                path=(),
+                message=f"the document is empty; expected a value of type {schema.root.name}",
+            )
+        ]
+
+    try:
+        return _validate_type(
+            value=value,
+            schema=schema,
+            type_name=schema.root.name,
+            path=(),
+            walk=_Walk(max_depth=max_depth),
+        )
+    except RecursionError as error:
+        raise _too_deep_error(max_depth) from error
+
+
+def _too_deep_error(max_depth: int | None) -> InvalidValueError:
+    return InvalidValueError(
+        code=ErrorCode.TOO_DEEP,
         path=(),
-        active_id_set=set(),
+        message=korml._limits.too_deep_message(max_depth),
     )
 
 
 def construct(
-    value: Builtin,
+    value: Builtin | None,
     schema: Schema,
     constructor_map: collections.abc.Mapping[str, collections.abc.Callable[..., object]]
     | None = None,
+    *,
+    max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
 ) -> object:
     """
     Validate a builtin value and recursively build user-defined objects.
@@ -238,20 +291,28 @@ def construct(
     would let a document set any parameter of the constructor, such as
     sandbox in Job(cmd, sandbox=True); they are passed as one dict instead.
 
+    An empty document (None or an Empty) constructs to None when the root
+    type is of kind any, without calling a constructor, since there is
+    nothing to construct; for any other root type it is a ConstructionError
+    with an EMPTY_DOCUMENT error, as from validate.
+
     Raises ConstructionError if the value is invalid or a constructor
-    fails, and InvalidValueError (see validate) for a value nested too
-    deeply or containing itself. Construction follows the same path through
-    the value as validation, which has already checked both.
+    fails, and InvalidValueError (see validate) for a value nested deeper
+    than max_depth or containing itself. Construction follows the same path
+    through the value as validation, which has already checked both.
     """
     _check_schema_type(schema)
 
     if constructor_map is None:
         constructor_map = {}
 
-    error_array = validate(value, schema)
+    error_array = validate(value, schema, max_depth=max_depth)
 
     if error_array:
         raise ConstructionError(error_array)
+
+    if _is_empty_document(value):
+        return None
 
     try:
         return _construct_type(
@@ -260,6 +321,8 @@ def construct(
             type_name=schema.root.name,
             constructor_map=constructor_map,
         )
+    except RecursionError as error:
+        raise _too_deep_error(max_depth) from error
     except Exception as error:
         raise ConstructionError(
             [
@@ -471,7 +534,7 @@ def _validate_type(
     schema: Schema,
     type_name: str,
     path: tuple[str | int, ...],
-    active_id_set: set[int],
+    walk: _Walk,
 ) -> list[ValidationError]:
     """Dispatch validation for one value against a named schema type."""
     type_definition = schema.types.get(type_name)
@@ -493,7 +556,7 @@ def _validate_type(
             return _validate_scalar(value, type_definition, path)
 
         case "sequence" | "mapping" if isinstance(value, (list, dict)):
-            return _validate_collection(value, schema, type_definition, path, active_id_set)
+            return _validate_collection(value, schema, type_definition, path, walk)
 
         case "sequence":
             return _validate_sequence(value, schema, type_definition, path, set())
@@ -620,24 +683,22 @@ def _validate_collection(
     schema: Schema,
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
-    active_id_set: set[int],
+    walk: _Walk,
 ) -> list[ValidationError]:
     """
     Validate a list or dict, refusing deep nesting and cycles first.
 
-    active_id_set holds the containers on the path from the root to value;
-    meeting one of them again means the value contains itself. A container
-    shared by two branches is not a cycle.
+    walk.active_id_set holds the containers on the path from the root to
+    value; meeting one of them again means the value contains itself. A
+    container shared by two branches is not a cycle.
     """
-    collection_depth = len(active_id_set)
+    active_id_set = walk.active_id_set
 
-    if collection_depth > korml._limits.MAX_NESTING_DEPTH:
+    if korml._limits.is_too_deep(len(active_id_set), walk.max_depth):
         raise InvalidValueError(
             code=ErrorCode.TOO_DEEP,
             path=path,
-            message=(
-                f"collections are nested deeper than {korml._limits.MAX_NESTING_DEPTH} levels"
-            ),
+            message=korml._limits.too_deep_message(walk.max_depth),
         )
 
     if id(value) in active_id_set:
@@ -651,9 +712,9 @@ def _validate_collection(
 
     try:
         if type_definition.kind == "sequence":
-            return _validate_sequence(value, schema, type_definition, path, active_id_set)
+            return _validate_sequence(value, schema, type_definition, path, walk)
 
-        return _validate_mapping(value, schema, type_definition, path, active_id_set)
+        return _validate_mapping(value, schema, type_definition, path, walk)
     finally:
         active_id_set.discard(id(value))
 
@@ -663,7 +724,7 @@ def _validate_sequence(
     schema: Schema,
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
-    active_id_set: set[int],
+    walk: _Walk,
 ) -> list[ValidationError]:
     """Validate a builtin sequence and each item against its item type."""
     if not isinstance(value, list):
@@ -693,7 +754,7 @@ def _validate_sequence(
                 schema=schema,
                 type_name=type_definition.items.name,
                 path=path + (index,),
-                active_id_set=active_id_set,
+                walk=walk,
             )
         )
 
@@ -705,7 +766,7 @@ def _validate_mapping(
     schema: Schema,
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
-    active_id_set: set[int],
+    walk: _Walk,
 ) -> list[ValidationError]:
     """Validate a builtin mapping against required, field, and value rules."""
     if not isinstance(value, dict):
@@ -751,7 +812,7 @@ def _validate_mapping(
                 schema=schema,
                 type_name=reference.name,
                 path=path + (key,),
-                active_id_set=active_id_set,
+                walk=walk,
             )
         )
 

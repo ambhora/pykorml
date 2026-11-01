@@ -7,7 +7,9 @@ import dataclasses
 import enum
 import typing
 
+import korml._limits
 import korml.core
+import korml.error
 
 __all__ = [
     "Version",
@@ -19,6 +21,7 @@ __all__ = [
     "Scalar",
     "Sequence",
     "Mapping",
+    "Empty",
     "Stream",
 ]
 
@@ -98,6 +101,57 @@ def _check_value_array_version(
         )
 
 
+def _check_not_empty(child: "Value[ConcreteToken]") -> None:
+    """Refuse an Empty as a mapping value or sequence entry; it is only a document root."""
+    if isinstance(child, Empty):
+        raise TypeError("an empty document can only be the root of a document")
+
+
+def _too_deep_error(max_depth: int | None) -> korml.error.KormlError:
+    return korml.error.KormlError(
+        message=korml._limits.too_deep_message(max_depth),
+        code="TOO_DEEP",
+    )
+
+
+def _builtin_of(
+    value: "Value[ConcreteToken]",
+    *,
+    depth: int,
+    max_depth: int | None,
+) -> object:
+    """Convert value to plain Python data; depth counts the collections around it."""
+    if isinstance(value, (Sequence, Mapping)) and korml._limits.is_too_deep(depth, max_depth):
+        raise _too_deep_error(max_depth)
+
+    if isinstance(value, Sequence):
+        return [
+            _builtin_of(child, depth=depth + 1, max_depth=max_depth) for child in value.value_array
+        ]
+
+    if isinstance(value, Mapping):
+        return {
+            key: _builtin_of(child, depth=depth + 1, max_depth=max_depth)
+            for key, child in value.value_map.items()
+        }
+
+    return value.to_builtin()
+
+
+def _to_builtin(value: "Value[ConcreteToken]", *, max_depth: int | None) -> object:
+    """
+    Convert a value, refusing nesting deeper than max_depth with a TOO_DEEP error.
+
+    With max_depth None, a RecursionError from Python becomes the same error.
+    """
+    korml._limits.check_max_depth(max_depth)
+
+    try:
+        return _builtin_of(value, depth=0, max_depth=max_depth)
+    except RecursionError as error:
+        raise _too_deep_error(max_depth) from error
+
+
 @dataclasses.dataclass(slots=True, kw_only=True)
 class Value(typing.Generic[ConcreteToken]):
     cst: CST[ConcreteToken] = dataclasses.field(
@@ -110,6 +164,9 @@ class Value(typing.Generic[ConcreteToken]):
             parent_version=self.version,
             value_array=self.child_array,
         )
+
+        for child in self.child_array:
+            _check_not_empty(child)
 
     @property
     def child_array(self) -> tuple["Value[ConcreteToken]", ...]:
@@ -131,7 +188,14 @@ class Value(typing.Generic[ConcreteToken]):
     def span(self) -> korml.core.Span:
         return self.cst.span
 
-    def to_builtin(self) -> object:
+    def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> object:
+        """
+        Return the value as plain Python data: dict, list, str, or None for Empty.
+
+        max_depth is the deepest nesting of collections converted; deeper
+        nesting raises a KormlError with the code TOO_DEEP. None removes
+        the limit, and a RecursionError from Python raises the same error.
+        """
         raise NotImplementedError(f"{type(self).__name__}.to_builtin() is not implemented")
 
     def with_style(
@@ -154,7 +218,8 @@ class Value(typing.Generic[ConcreteToken]):
 class Scalar(Value[ConcreteToken]):
     value: str = ""
 
-    def to_builtin(self) -> str:
+    def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> str:
+        korml._limits.check_max_depth(max_depth)
         return self.value
 
 
@@ -193,11 +258,14 @@ class Sequence(Value[ConcreteToken], collections.abc.Sequence[Value[ConcreteToke
             parent_version=self.version,
             child=value,
         )
+        _check_not_empty(value)
 
         self.value_array.append(value)
 
-    def to_builtin(self) -> list[object]:
-        return [value.to_builtin() for value in self.value_array]
+    def to_builtin(
+        self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH
+    ) -> list[object]:
+        return typing.cast(list[object], _to_builtin(self, max_depth=max_depth))
 
 
 @dataclasses.dataclass(slots=True)
@@ -245,11 +313,38 @@ class Mapping(Value[ConcreteToken], collections.abc.Mapping[str, Value[ConcreteT
             parent_version=self.version,
             child=value,
         )
+        _check_not_empty(value)
 
         self.value_map[key] = value
 
-    def to_builtin(self) -> dict[str, object]:
-        return {key: value.to_builtin() for key, value in self.value_map.items()}
+    def to_builtin(
+        self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH
+    ) -> dict[str, object]:
+        return typing.cast(dict[str, object], _to_builtin(self, max_depth=max_depth))
+
+
+@dataclasses.dataclass(slots=True)
+class Empty(Value[ConcreteToken]):
+    """
+    The root of a document that has no root node.
+
+    A document has zero or one root node: '---' then '...' in v1, or an empty
+    or blank-only v0 source, is a document with none. Empty stands in that
+    document's place in Stream.document_array, so a stream keeps every
+    document it was read from, and its CST keeps the tokens of the empty
+    body, such as the comments between the markers. The name follows
+    Scalar, Sequence and Mapping, which name what a document holds; this
+    one holds nothing.
+
+    Empty is not a value of the language: it is only ever a document root,
+    and the model refuses it as a mapping value or sequence entry.
+    to_builtin returns None, the only place None appears, so that a stream
+    converts to plain Python data.
+    """
+
+    def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> None:
+        korml._limits.check_max_depth(max_depth)
+        return None
 
 
 @dataclasses.dataclass(slots=True)
@@ -303,8 +398,15 @@ class Stream(typing.Generic[ConcreteToken]):
 
         self.document_array.append(value)
 
-    def to_builtin(self) -> list[object]:
-        return [document.to_builtin() for document in self.document_array]
+    def to_builtin(
+        self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH
+    ) -> list[object]:
+        """
+        Return one plain Python value per document; None for an empty document.
+
+        max_depth limits the nesting of each document; see Value.to_builtin.
+        """
+        return [_to_builtin(document, max_depth=max_depth) for document in self.document_array]
 
 
 def _make_value_from_raw(

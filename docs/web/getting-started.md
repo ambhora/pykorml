@@ -29,7 +29,9 @@ assert stream.to_builtin() == [{"name": "example"}]
 `to_builtin` turns the stream into a list with one Python value per
 document: a mapping becomes a `dict`, a sequence a `list`, and every scalar
 a `str`. Korml has no implicit typing, so a `3` in the source is the string
-`"3"`.
+`"3"`. A document without content, such as `---` followed by `...` or an
+empty v0 source, is a `korml.Empty` in the stream and `None` in
+`to_builtin`.
 
 A v1 source holds one or more documents, each opened by `---` and closed by
 `...`:
@@ -140,10 +142,19 @@ stream = korml.load(
 )
 ```
 
-Passing `None` disables a particular limit; the fixed nesting guard remains
-in place. Do not disable limits for documents supplied by untrusted users.
+The nesting limit is the `max_depth` keyword of `loads`, `load`, `dumps`,
+`dump`, `edit`, `to_builtin` and the schema functions; the default is 128
+levels. Passing `None` disables a particular limit; for `max_depth`, nesting
+too deep for Python's recursion limit still raises a `KormlError` with the
+code `TOO_DEEP`. Do not disable limits for documents supplied by untrusted
+users.
 
 Both `korml.dump` and the CLI's file output atomically replace their target
-once rendering succeeds. Output symlinks are replaced, not followed. Files
-in symlinked directories are supported. An existing regular file's mode is
-preserved on POSIX systems; creating a new file uses restricted permissions.
+once rendering succeeds. An output path that is a symbolic link is refused
+unless you allow it, as above. Files in symlinked directories are supported.
+An existing regular file's mode is preserved on POSIX systems; creating a new
+file uses restricted permissions.
+
+`korml.load` and `korml lex --input` read only regular files; a FIFO, a
+device or a directory is refused with the code `NOT_A_REGULAR_FILE` rather
+than read. To read from a pipe, pass `--input -` for standard input.

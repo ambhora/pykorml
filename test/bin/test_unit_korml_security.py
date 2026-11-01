@@ -156,10 +156,11 @@ def _cyclic_dict() -> dict[str, object]:
 
 
 def test_dumps_refuses_deep_nesting_with_a_korml_error() -> None:
-    assert korml.loads(korml.dumps(_nested_list(128))).to_builtin() == [_nested_list(128)]
+    # _nested_list(n) is n + 1 lists deep.
+    assert korml.loads(korml.dumps(_nested_list(127))).to_builtin() == [_nested_list(127)]
 
     with pytest.raises(korml.error.EmitError, match="nested deeper"):
-        korml.dumps(_nested_list(129))
+        korml.dumps(_nested_list(128))
 
     with pytest.raises(korml.error.EmitError, match="nested deeper"):
         korml.dumps(_nested_list(5000))
@@ -201,7 +202,8 @@ def _nested_dict(depth: int) -> dict[str, object]:
 def test_schema_refuses_deep_nesting_with_a_korml_error(function: object) -> None:
     schema = korml.schema.compile_schema(_TREE_SCHEMA)
 
-    assert korml.schema.validate(_nested_dict(128), schema) == []
+    # _nested_dict(n) is n + 1 dicts deep.
+    assert korml.schema.validate(_nested_dict(127), schema) == []
 
     with pytest.raises(korml.schema.v1.InvalidValueError, match="nested deeper") as error_info:
         function(_nested_dict(5000), schema)

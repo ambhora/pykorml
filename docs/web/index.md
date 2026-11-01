@@ -33,6 +33,8 @@ name: example
 
 Korml leaves out the parts of YAML that make it hard to parse and edit:
 anchors and aliases, tags, complex keys, merge keys and implicit typing.
+Without them, `&`, `*`, `!`, `%`, `@` and a backtick are ordinary characters,
+also at the start of a plain scalar, where YAML reads them differently.
 Every scalar is text; deciding that `3` is a number is up to the
 application or a schema.
 

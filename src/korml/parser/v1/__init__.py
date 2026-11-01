@@ -36,7 +36,8 @@ class ErrorCode(str, enum.Enum):
         return self.value
 
 
-# The deepest nesting of collections the parser accepts; see korml._limits.
+# The default deepest nesting of collections the parser accepts; parse()
+# takes the limit as max_depth. See korml._limits.
 MAX_NESTING_DEPTH = korml._limits.MAX_NESTING_DEPTH
 
 # The longest key, in characters of source text, quotes included.
@@ -115,8 +116,14 @@ def _check_tokens(file: korml.lexer.v1.File, max_tokens: int | None) -> None:
         )
 
 
-def _check_flow_depth(file: korml.lexer.v1.File) -> None:
+def _check_flow_depth(
+    file: korml.lexer.v1.File,
+    max_depth: int | None = MAX_NESTING_DEPTH,
+) -> None:
     """Reject excessive flow nesting before its recursive parsing work starts."""
+    if max_depth is None:
+        return
+
     depth = 0
     for token in file.token_array:
         if token.type in (
@@ -124,10 +131,10 @@ def _check_flow_depth(file: korml.lexer.v1.File) -> None:
             korml.lexer.v1.TokenType.FLOW_MAPPING_START,
         ):
             depth += 1
-            if depth > MAX_NESTING_DEPTH:
+            if depth > max_depth:
                 raise _make_parse_error(
                     ErrorCode.TOO_DEEP,
-                    message=f"collections are nested deeper than {MAX_NESTING_DEPTH} levels",
+                    message=korml._limits.too_deep_message(max_depth),
                     source_name=file.filename,
                     at=token,
                 )
@@ -143,19 +150,24 @@ def parse(
     *,
     max_tokens: int | None = korml._limits.MAX_TOKENS,
     max_work: int | None = korml._limits.MAX_PARSE_WORK,
+    max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
     """
     Parse a tokenized v1 file into a stream of documents.
 
-    A document without a root node, written '---' then '...', is valid, but
-    the document model cannot represent it: Stream.document_array holds
-    values only. Such a document is therefore not part of the result.
+    A document without a root node, written '---' then '...', is an Empty
+    in Stream.document_array, so the stream keeps every document.
+
+    max_depth is the deepest nesting of collections accepted; deeper
+    nesting is a ParseError with the code TOO_DEEP. None removes the limit,
+    and nesting too deep for Python's recursion limit raises the same error.
     """
     if file.version is not korml.model.Version.v1:
         raise ValueError(f"parser v1 cannot parse version {file.version.value!r}")
 
+    korml._limits.check_max_depth(max_depth)
     _check_tokens(file, max_tokens)
-    _check_flow_depth(file)
+    _check_flow_depth(file, max_depth)
     budget = _ParseBudget(remaining=max_work)
     document_array: list[korml.model.Value[korml.lexer.v1.Token]] = []
 
@@ -163,16 +175,15 @@ def parse(
         file.token_array,
         source_name=file.filename,
     ):
-        root = _parse_body(
-            document_token_array,
-            version=file.version,
-            source_name=file.filename,
-            depth=0,
-            budget=budget,
+        document_array.append(
+            _parse_document(
+                document_token_array,
+                version=file.version,
+                source_name=file.filename,
+                budget=budget,
+                max_depth=max_depth,
+            )
         )
-
-        if root is not None:
-            document_array.append(root)
 
     return korml.model.Stream[korml.lexer.v1.Token](
         document_array=document_array,
@@ -181,6 +192,45 @@ def parse(
             version=file.version,
             token_array=file.token_array,
         ),
+    )
+
+
+def _parse_document(
+    token_array: collections.abc.Sequence[korml.lexer.v1.Token],
+    *,
+    version: korml.model.Version,
+    source_name: str,
+    budget: _ParseBudget | None,
+    max_depth: int | None,
+) -> korml.model.Value[korml.lexer.v1.Token]:
+    """
+    Parse one document body into its root value, or an Empty if it has none.
+
+    A RecursionError, possible only when max_depth is None or larger than
+    Python can recurse, becomes a ParseError with the code TOO_DEEP.
+    """
+    try:
+        root = _parse_body(
+            token_array,
+            version=version,
+            source_name=source_name,
+            depth=0,
+            budget=budget,
+            max_depth=max_depth,
+        )
+    except RecursionError as error:
+        raise _make_parse_error(
+            ErrorCode.TOO_DEEP,
+            message=korml._limits.too_deep_message(max_depth),
+            source_name=source_name,
+            at=_first_non_trivia(token_array),
+        ) from error
+
+    if root is not None:
+        return root
+
+    return korml.model.Empty[korml.lexer.v1.Token](
+        cst=korml.model.CST(version=version, token_array=tuple(token_array)),
     )
 
 
@@ -867,6 +917,7 @@ class _Parser:
         version: korml.model.Version,
         source_name: str,
         budget: _ParseBudget | None,
+        max_depth: int | None = MAX_NESTING_DEPTH,
     ) -> None:
         layouter = _Layouter(token_array, source_name=source_name)
         self.event_array = layouter.run()
@@ -875,6 +926,7 @@ class _Parser:
         self.version = version
         self.source_name = source_name
         self.budget = budget
+        self.max_depth = max_depth
         self.position = 0
 
     # Token access -------------------------------------------------------------------------------
@@ -933,10 +985,11 @@ class _Parser:
         )
 
     def check_depth(self, depth: int, event: _Event) -> None:
-        if depth > MAX_NESTING_DEPTH:
+        """Refuse a collection inside depth others if that breaks max_depth."""
+        if korml._limits.is_too_deep(depth, self.max_depth):
             raise self.error(
                 ErrorCode.TOO_DEEP,
-                f"collections are nested deeper than {MAX_NESTING_DEPTH} levels",
+                korml._limits.too_deep_message(self.max_depth),
                 event,
             )
 
@@ -1395,6 +1448,7 @@ def _parse_body(
     source_name: str,
     depth: int,
     budget: _ParseBudget | None = None,
+    max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> korml.model.Value[korml.lexer.v1.Token] | None:
     """
     Parse the tokens of one document body; return None for an empty body.
@@ -1407,6 +1461,7 @@ def _parse_body(
         version=version,
         source_name=source_name,
         budget=budget,
+        max_depth=max_depth,
     )
     return parser.parse_body(depth)
 
@@ -1418,10 +1473,16 @@ def _parse_value(
     source_name: str,
     depth: int,
     budget: _ParseBudget | None = None,
+    max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> korml.model.Value[korml.lexer.v1.Token]:
     """Parse the tokens of a document body that must hold a root value."""
     value = _parse_body(
-        token_array, version=version, source_name=source_name, depth=depth, budget=budget
+        token_array,
+        version=version,
+        source_name=source_name,
+        depth=depth,
+        budget=budget,
+        max_depth=max_depth,
     )
 
     if value is None:
@@ -1442,10 +1503,16 @@ def _parse_sequence(
     source_name: str,
     depth: int,
     budget: _ParseBudget | None = None,
+    max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> korml.model.Sequence[korml.lexer.v1.Token]:
     """Parse the tokens of a document body whose root must be a sequence."""
     value = _parse_value(
-        token_array, version=version, source_name=source_name, depth=depth, budget=budget
+        token_array,
+        version=version,
+        source_name=source_name,
+        depth=depth,
+        budget=budget,
+        max_depth=max_depth,
     )
 
     if not isinstance(value, korml.model.Sequence):
@@ -1466,10 +1533,16 @@ def _parse_mapping(
     source_name: str,
     depth: int,
     budget: _ParseBudget | None = None,
+    max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> korml.model.Mapping[korml.lexer.v1.Token]:
     """Parse the tokens of a document body whose root must be a mapping."""
     value = _parse_value(
-        token_array, version=version, source_name=source_name, depth=depth, budget=budget
+        token_array,
+        version=version,
+        source_name=source_name,
+        depth=depth,
+        budget=budget,
+        max_depth=max_depth,
     )
 
     if not isinstance(value, korml.model.Mapping):

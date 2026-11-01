@@ -647,8 +647,8 @@ def test_grammar_errors(source: str, code: str) -> None:
 
 
 def test_empty_v0_source_is_an_empty_document() -> None:
-    assert _load("") == []
-    assert _load("# only a comment\n\n") == []
+    assert _load("") == [None]
+    assert _load("# only a comment\n\n") == [None]
 
 
 # --------------------------------------------------------------------------------------------------
@@ -704,10 +704,8 @@ def test_indented_directive_makes_the_source_v0() -> None:
 
 
 def test_empty_document_is_valid() -> None:
-    # The model has no way to hold a document without a root, so the stream
-    # lists only the documents that have one.
-    assert _load("%!korml version 1.0\n---\n...\n") == []
-    assert _load("%!korml version 1.0\n---\na: 1\n...\n---\n# c\n...\n") == [{"a": "1"}]
+    assert _load("%!korml version 1.0\n---\n...\n") == [None]
+    assert _load("%!korml version 1.0\n---\na: 1\n...\n---\n# c\n...\n") == [{"a": "1"}, None]
 
 
 def test_document_markers_inside_flow_and_block_scalars() -> None:

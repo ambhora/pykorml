@@ -8,11 +8,49 @@ MAX_INPUT_BYTES = 8 * 1024 * 1024
 MAX_TOKENS = 100_000
 MAX_PARSE_WORK = 1_000_000
 
-# The deepest nesting of collections that korml reads or writes. The parser,
-# the emitter and the schema code recurse once per level, and the limit keeps
-# them well inside Python's recursion limit, so deep nesting is a korml error
-# rather than a RecursionError. The rules require at least 64 levels.
+# The default deepest nesting of collections that korml reads or writes: a
+# collection inside 127 others is accepted, one inside 128 is not. The parser,
+# the emitter, the model and the schema code recurse once per level, and the
+# limit keeps them well inside Python's recursion limit. Every entry point
+# that walks a document takes it as max_depth; the rules require at least 64.
 MAX_NESTING_DEPTH = 128
+
+
+def check_max_depth(max_depth: int | None) -> None:
+    """
+    Raise if max_depth is not a valid nesting limit.
+
+    A limit is a positive integer, or None for no limit imposed by korml.
+    With None, Python's own recursion limit still ends very deep nesting;
+    the entry points turn the RecursionError into a korml error with the
+    code TOO_DEEP.
+    """
+    if max_depth is None:
+        return
+
+    if isinstance(max_depth, bool) or not isinstance(max_depth, int):
+        raise TypeError(f"max_depth must be an integer or None, not {type(max_depth).__name__}")
+
+    if max_depth <= 0:
+        raise ValueError(f"max_depth must be positive, not {max_depth}")
+
+
+def is_too_deep(depth: int, max_depth: int | None) -> bool:
+    """
+    Return whether a collection inside depth others breaks the nesting limit.
+
+    depth counts the collections that enclose this one, so the root
+    collection has depth 0 and is level 1; max_depth is the deepest level
+    allowed.
+    """
+    return max_depth is not None and depth >= max_depth
+
+
+def too_deep_message(max_depth: int | None) -> str:
+    if max_depth is None:
+        return "collections are nested deeper than Python's recursion limit allows"
+
+    return f"collections are nested deeper than {max_depth} levels"
 
 
 def check_input_size(text: str, *, max_input_bytes: int | None, filename: str) -> None:
