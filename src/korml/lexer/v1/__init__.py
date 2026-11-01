@@ -76,7 +76,11 @@ class Token:
     """Where the token is."""
 
     def to_dict(self) -> dict[str, object]:
-        """Return the token as JSON-compatible data, as korml lex prints it."""
+        """
+        Return the token as JSON-compatible data, as korml lex prints it.
+
+        @return A dictionary with the type, value and span.
+        """
         return {
             "type": self.type.name,
             "value": self.value,
@@ -129,6 +133,11 @@ class ErrorCode(str, enum.Enum):
     """Text that a plain scalar may not start with or hold."""
 
     def __str__(self) -> str:
+        """
+        Return the code as text.
+
+        @return The value of the code.
+        """
         return self.value
 
 
@@ -138,7 +147,17 @@ def make_token(
     value: str,
     start: korml.core.Position,
 ) -> Token:
-    """Return the token with this type and value that starts at start."""
+    """
+    Return the token with this type and value that starts at start.
+
+    @param type The kind of token.
+
+    @param value The source text of the token.
+
+    @param start The position of its first character.
+
+    @return The token.
+    """
     return Token(
         type=type,
         value=value,
@@ -153,7 +172,15 @@ def make_token_array(
     *spec_array: tuple[TokenType, str],
     start: korml.core.Position,
 ) -> tuple[Token, ...]:
-    """Return consecutive tokens from (type, value) pairs, the first at start."""
+    """
+    Return consecutive tokens from (type, value) pairs, the first at start.
+
+    @param start The position of the first character of the first token.
+
+    @param spec_array The (type, value) pair of each token.
+
+    @return The tokens.
+    """
     token_array: list[Token] = []
     position = start
 

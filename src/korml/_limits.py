@@ -24,6 +24,8 @@ def check_max_depth(max_depth: int | None) -> None:
     With None, Python's own recursion limit still ends very deep nesting;
     the entry points turn the RecursionError into a korml error with the
     code TOO_DEEP.
+
+    @param max_depth The limit to check.
     """
     if max_depth is None:
         return
@@ -42,11 +44,26 @@ def is_too_deep(depth: int, max_depth: int | None) -> bool:
     depth counts the collections that enclose this one, so the root
     collection has depth 0 and is level 1; max_depth is the deepest level
     allowed.
+
+    @param depth The number of collections that enclose this one.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return True if the collection breaks the limit.
     """
     return max_depth is not None and depth >= max_depth
 
 
 def too_deep_message(max_depth: int | None) -> str:
+    """
+    Return the message of a TOO_DEEP error.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The message, which names the limit.
+    """
     if max_depth is None:
         return "collections are nested deeper than Python's recursion limit allows"
 
@@ -54,6 +71,15 @@ def too_deep_message(max_depth: int | None) -> str:
 
 
 def check_input_size(text: str, *, max_input_bytes: int | None, filename: str) -> None:
+    """
+    Raise a CompilerError if text is larger than max_input_bytes.
+
+    @param text The source text.
+
+    @param max_input_bytes The largest source accepted, in bytes, or None for no limit.
+
+    @param filename The name of the source, for diagnostics.
+    """
     import korml.error
 
     if max_input_bytes is not None and (
@@ -72,6 +98,12 @@ def check_token_count(count: int, *, max_tokens: int | None, filename: str) -> N
 
     The lexers call this before each token, so an input with too many tokens
     is rejected after max_tokens tokens rather than after building them all.
+
+    @param count The number of tokens the lexer holds.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @param filename The name of the source, for diagnostics.
     """
     import korml.error
 

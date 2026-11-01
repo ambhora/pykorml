@@ -67,6 +67,13 @@ JOINER_CHARACTER_SET = frozenset("‌‍")
 
 
 def _describe_character(char: str) -> str:
+    """
+    Return the code point and the name of a character, for a message.
+
+    @param char The character.
+
+    @return Text such as 'U+200B ZERO WIDTH SPACE'.
+    """
     code_point = ord(char)
     name = unicodedata.name(char, "")
 
@@ -81,10 +88,28 @@ def _describe_character(char: str) -> str:
 
 
 def _position_at_offset(input_text: str, offset: int) -> korml.core.Position:
+    """
+    Return the source position of an offset.
+
+    @param input_text The complete source text.
+
+    @param offset The offset into input_text, in code points.
+
+    @return The position.
+    """
     return korml.core.advance_position(korml.core.Position(1, 1, 0), input_text[:offset])
 
 
 def _line_at_offset(input_text: str, offset: int) -> str:
+    """
+    Return the whole line that holds an offset.
+
+    @param input_text The complete source text.
+
+    @param offset The offset into input_text, in code points.
+
+    @return The line, without its line break.
+    """
     start = offset
     while start > 0 and input_text[start - 1] not in "\r\n":
         start -= 1
@@ -104,6 +129,19 @@ def _raise_source_text_error(
     message: str,
     code: korml.lexer.v1.ErrorCode,
 ) -> None:
+    """
+    Raise a LexError located at an offset of the source.
+
+    @param filename The name of the source, for diagnostics.
+
+    @param input_text The complete source text.
+
+    @param offset The offset of the problem.
+
+    @param message What is wrong.
+
+    @param code The error code.
+    """
     position = _position_at_offset(input_text, offset)
     raise korml.error.LexError(
         message=message,
@@ -125,6 +163,10 @@ def check_source_text(filename: str, input_text: str) -> None:
     no lone CR. A source mixing line-break styles counts lines differently
     in different tools, so diagnostics and reviews would point at different
     lines.
+
+    @param filename The name of the source, for diagnostics.
+
+    @param input_text The complete source text.
     """
     match = _FORBIDDEN_CHARACTER_PATTERN.search(input_text)
 
@@ -277,20 +319,16 @@ def _advance_position(
     one function helps ensure that all tokens use the same coordinate
     conventions.
 
-    Args:
-        position:
-            Source position before consuming text.
-
-        text:
-            Text consumed from the source starting at position.
-
-    Returns:
-        The source position immediately after the consumed text.
-
     Notes:
         Columns are textual columns, not visual columns. Tabs and Unicode
         grapheme clusters may render with different visual widths, but they
         still advance the column by one codepoint here.
+
+    @param position Source position before consuming text.
+
+    @param text Text consumed from the source starting at position.
+
+    @return The source position immediately after the consumed text.
     """
     return korml.core.advance_position(position, text)
 
@@ -302,16 +340,11 @@ def _make_span(
     """
     Build a source span for a consumed text fragment.
 
-    Args:
-        start:
-            Source position at which value begins.
+    @param start Source position at which value begins.
 
-        value:
-            Text fragment covered by the span.
+    @param value Text fragment covered by the span.
 
-    Returns:
-        A tuple containing the span covering value and the position immediately
-        after value.
+    @return A tuple containing the span covering value and the position immediately after value.
     """
     end = _advance_position(start, value)
     return korml.core.Span(start=start, end=end), end
@@ -325,19 +358,14 @@ def _make_token(
     """
     Build a lexer token and compute the following source position.
 
-    Args:
-        token_type:
-            Type of token to create.
+    @param token_type Type of token to create.
 
-        value:
-            Exact source text represented by the token.
+    @param value Exact source text represented by the token.
 
-        start:
-            Source position at which the token begins.
+    @param start Source position at which the token begins.
 
-    Returns:
-        A tuple containing the created token and the source position immediately
-        after the token.
+    @return A tuple containing the created token and the source position immediately after the
+        token.
     """
     span, end = _make_span(start, value)
 
@@ -358,16 +386,12 @@ def _read_until_newline(
     """
     Read text from the current position up to the next newline.
 
-    Args:
-        input_text:
-            Complete source text being lexed.
+    @param input_text Complete source text being lexed.
 
-        lexer_state:
-            Current lexer state. Reading begins at lexer_state.position.
+    @param lexer_state Current lexer state. Reading begins at lexer_state.position.
 
-    Returns:
-        Source text from the current position up to, but not including, the next
-        newline or the end of input.
+    @return Source text from the current position up to, but not including, the next newline or the
+        end of input.
     """
     start = lexer_state.position.offset
     end = start
@@ -387,6 +411,12 @@ def _source_line(
 
     Diagnostics print it with a caret under the column of the position, so it
     starts at the beginning of the line, not at the position.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The line, without its line break.
     """
     start = lexer_state.position.offset
 
@@ -405,21 +435,32 @@ def unlex(file: korml.lexer.v1.File) -> str:
     """
     Convert a tokenized korml file back to source text.
 
-    Args:
-        file:
-            Tokenized korml file.
+    @param file Tokenized korml file.
 
-    Returns:
-        Source text reconstructed by concatenating token values.
+    @return Source text reconstructed by concatenating token values.
     """
     return "".join(token.value for token in file.token_array)
 
 
 def _make_error_span(position: korml.core.Position) -> korml.core.Span:
+    """
+    Return the empty span at position.
+
+    @param position The position of the error.
+
+    @return The span.
+    """
     return korml.core.Span(start=position, end=position)
 
 
 def _debug_lexer(lexer_state: LexerState, message: str) -> None:
+    """
+    Print the lexer state on standard error, if tracing is on.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param message What the lexer is doing.
+    """
     if not lexer_state.debug:
         return
 
@@ -460,6 +501,15 @@ def _lex_flow_entry_separator(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume the ',' between two entries of a flow collection.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex flow entry separator")
 
     position = lexer_state.position
@@ -494,6 +544,15 @@ def _lex_document_end(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a document end marker, refusing one inside a flow collection.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex document end marker")
 
     position = lexer_state.position
@@ -540,7 +599,19 @@ def lex(
     *,
     max_tokens: int | None = None,
 ) -> korml.lexer.v1.File:
-    """Tokenize a complete v1 source, refusing more than max_tokens tokens."""
+    """
+    Tokenize a complete v1 source, refusing more than max_tokens tokens.
+
+    @param filename The name of the source, for diagnostics.
+
+    @param input_text The complete source text.
+
+    @param debug Whether to trace the lexer on standard error.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @return The tokens of the source.
+    """
     check_source_text(str(filename), input_text)
 
     lexer_state = LexerState(
@@ -661,6 +732,14 @@ def _is_marker_line(input_text: str, lexer_state: LexerState, marker: str) -> bo
 
     A marker starts at column 0 and is alone on its line, apart from
     trailing whitespace: no content and no comment follow it.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param marker The marker, '---' or '...'.
+
+    @return True if the marker starts here and is alone on its line.
     """
     offset = lexer_state.position.offset
 
@@ -682,6 +761,12 @@ def _block_scalar_parent_indent(input_text: str, indicator_offset: int) -> int:
     That is the column, counted from 0, of the mapping key or sequence dash
     the scalar is the value of, or -1 for a scalar at the start of a line.
     The content of the scalar must be indented deeper.
+
+    @param input_text The complete source text.
+
+    @param indicator_offset The offset of the block scalar indicator.
+
+    @return The 0-based column of the owner, or -1.
     """
     line_start = indicator_offset
     while line_start > 0 and input_text[line_start - 1] not in "\r\n":
@@ -716,6 +801,14 @@ def _block_scalar_body_end(input_text: str, offset: int, *, parent_indent: int) 
     way, and the parser reports it when it checks every line against n.
     Lines of spaces and TABs only belong to the scalar, where the parser
     checks them too.
+
+    @param input_text The complete source text.
+
+    @param offset The offset of the line after the header.
+
+    @param parent_indent The 0-based column of the owner, or -1.
+
+    @return The offset after the last line of the scalar, and whether it has content.
     """
     has_content = False
 
@@ -752,6 +845,15 @@ def _lex_single_quoted_scalar(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a single-quoted scalar, quotes included.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex single-quoted scalar")
 
     position = lexer_state.position
@@ -826,6 +928,12 @@ def _reject_colon_without_space(input_text: str, offset: int, lexer_state: Lexer
     input, in flow context too, so JSON-style {"a":1} is an error. Without
     this check the ':1' would read as a plain scalar and the error would
     only say that a colon is missing.
+
+    @param input_text The complete source text.
+
+    @param offset The offset to look at.
+
+    @param lexer_state The lexer state at the current position.
     """
     if (
         offset < len(input_text)
@@ -850,6 +958,13 @@ def _validate_flow_value_boundary(
     input_text: str,
     lexer_state: LexerState,
 ) -> None:
+    """
+    Raise a LexError if what follows a value cannot follow it.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+    """
     if lexer_state.mode is not LexerMode.FLOW_VALUE_START:
         _reject_colon_without_space(input_text, lexer_state.position.offset, lexer_state)
         return
@@ -881,6 +996,15 @@ def _lex_double_quoted_scalar(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a double-quoted scalar, quotes included.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex double-quoted scalar")
 
     position = lexer_state.position
@@ -958,6 +1082,12 @@ def _lex_flow_sequence_start(
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
     """
     Consume a flow sequence start token.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
     """
     _debug_lexer(lexer_state, "lex flow sequence start")
 
@@ -996,6 +1126,12 @@ def _lex_flow_mapping_start(
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
     """
     Consume a flow mapping start token.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
     """
     _debug_lexer(lexer_state, "lex flow mapping start")
 
@@ -1034,6 +1170,12 @@ def _lex_value_start_token(
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
     """
     Consume one token in VALUE_START mode.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
     """
     _debug_lexer(lexer_state, "lex value start token")
     if lexer_state.mode is not LexerMode.VALUE_START:
@@ -1105,6 +1247,15 @@ def _lex_folded_block_scalar(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a folded block scalar.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex folded block scalar")
 
     return _lex_block_scalar(
@@ -1119,6 +1270,15 @@ def _lex_literal_block_scalar(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a literal block scalar.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex literal block scalar")
 
     return _lex_block_scalar(
@@ -1130,6 +1290,15 @@ def _lex_literal_block_scalar(
 
 
 def _raise_block_scalar_error(input_text: str, lexer_state: LexerState, message: str) -> None:
+    """
+    Raise a LexError with the code INVALID_BLOCK_SCALAR.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param message What is wrong.
+    """
     raise korml.error.LexError(
         message=message,
         code=korml.lexer.v1.ErrorCode.INVALID_BLOCK_SCALAR,
@@ -1155,6 +1324,16 @@ def _lex_block_scalar(
     indentation follows from the layout, so there is one way to write each
     block scalar. A block scalar without a content line is an error; the
     empty string is written "".
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param indicator The indicator of the scalar, '|' or '>'.
+
+    @param token_type The kind of token to produce.
+
+    @return The token and the lexer state after it.
     """
     position = lexer_state.position
 
@@ -1228,6 +1407,12 @@ def _lex_flow_value_start_token(
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
     """
     Consume one token in FLOW_VALUE_START mode.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
     """
     _debug_lexer(lexer_state, "lex flow value start token")
 
@@ -1297,6 +1482,15 @@ def _lex_flow_mapping_end(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume the '}' that closes a flow mapping.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex flow mapping end")
 
     position = lexer_state.position
@@ -1343,6 +1537,15 @@ def _lex_flow_sequence_end(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume the ']' that closes a flow sequence.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex flow sequence end")
 
     position = lexer_state.position
@@ -1389,6 +1592,15 @@ def _lex_colon(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume the ':' between a key and its value.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex colon")
 
     position = lexer_state.position
@@ -1426,12 +1638,25 @@ def _is_mapping_colon(input_text: str, offset: int) -> bool:
     A colon is a mapping indicator only when a space, a line break or the
     end of the input follows it, in block and flow context alike. Any other
     colon belongs to a plain scalar, as in http://example.org:8080 or 12:30.
+
+    @param input_text The complete source text.
+
+    @param offset The offset of the colon.
+
+    @return True if the colon is a mapping indicator.
     """
     following = offset + 1
     return following >= len(input_text) or input_text[following] in " \r\n"
 
 
 def _mode_after_value(lexer_state: LexerState) -> LexerMode:
+    """
+    Return the lexer mode after a complete value.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return FLOW_VALUE_START inside a flow collection, otherwise VALUE_START.
+    """
     if lexer_state.flow_nesting_level > 0:
         return LexerMode.FLOW_VALUE_START
 
@@ -1444,6 +1669,17 @@ def _raise_plain_scalar_error(
     offset: int,
     message: str,
 ) -> None:
+    """
+    Raise a LexError with the code INVALID_PLAIN_SCALAR.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param offset The offset of the problem.
+
+    @param message What is wrong.
+    """
     raise korml.error.LexError(
         message=message,
         code=korml.lexer.v1.ErrorCode.INVALID_PLAIN_SCALAR,
@@ -1470,6 +1706,13 @@ def _plain_scalar_end(input_text: str, lexer_state: LexerState) -> int:
     comment. A TAB ends it too; the whitespace that follows is checked by
     _lex_horizontal_whitespace, where only trailing whitespace may hold a
     TAB.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The offset after the last character of the scalar, before any trailing spaces are
+        removed.
     """
     offset = lexer_state.position.offset
     in_flow = lexer_state.flow_nesting_level > 0
@@ -1520,6 +1763,12 @@ def _validate_plain_scalar(input_text: str, lexer_state: LexerState, value: str)
     '- ', '? ' or ': ', or a document marker. '&', '*', '!', '%', '@' and
     '`' are ordinary characters, also at the start, because korml has no
     anchors, aliases, tags or directives in a document body.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param value The text of the scalar.
     """
     offset = lexer_state.position.offset
 
@@ -1566,6 +1815,15 @@ def _lex_plain_scalar(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a plain scalar, without trailing spaces.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex plain scalar")
     position = lexer_state.position
 
@@ -1603,6 +1861,12 @@ def _lex_stream_token(
     STREAM mode expects the start of a document. For v1, this begins with the
     document-start marker "---". After this token, the lexer moves to
     VALUE_START mode.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
     """
     if lexer_state.mode is not LexerMode.STREAM:
         raise korml.error.BugError(
@@ -1655,6 +1919,15 @@ def _lex_dash_at_value_start(
     input_text: str,
     lexer_state: LexerState,
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume a sequence dash, or a plain scalar that starts with a dash.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex dash at value start")
 
     position = lexer_state.position
@@ -1693,6 +1966,15 @@ def _lex_dash_at_value_start(
 def _lex_version_directive(
     input_text: str, lexer_state: LexerState
 ) -> tuple[korml.lexer.v1.Token, LexerState]:
+    """
+    Consume the version directive and take the language version from it.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @return The token and the lexer state after it.
+    """
     _debug_lexer(lexer_state, "lex version directive")
     position = lexer_state.position
     line_text = _read_until_newline(input_text, lexer_state)
@@ -1763,17 +2045,13 @@ def _lex_newline(
     This function recognizes both Unix ("\n") and Windows ("\r\n")
     newline encodings and produces a single NEWLINE token.
 
-    Args:
-        input_text:
-            Complete source text being lexed.
+    @param input_text Complete source text being lexed.
 
-        lexer_state:
-            Current lexer state. The current position must point to the
-            beginning of a newline sequence.
+    @param lexer_state Current lexer state. The current position must point to the beginning of a
+        newline sequence.
 
-    Returns:
-        A tuple containing the produced NEWLINE token and the updated lexer
-        state after consuming the newline.
+    @return A tuple containing the produced NEWLINE token and the updated lexer state after
+        consuming the newline.
     """
     _debug_lexer(lexer_state, "lex newline")
     position = lexer_state.position
@@ -1814,6 +2092,14 @@ def _reject_tab_separator(
     indentation decides the structure, and it may not separate tokens or
     sit inside a plain scalar either. Whitespace that ends the line or
     comes before a comment may hold TABs.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param value The whitespace.
+
+    @param end The offset after the whitespace.
     """
     if "\t" not in value:
         return
@@ -1845,17 +2131,13 @@ def _lex_horizontal_whitespace(
     Horizontal whitespace consists of spaces and tab characters. Newlines
     are handled separately by _lex_newline().
 
-    Args:
-        input_text:
-            Complete source text being lexed.
+    @param input_text Complete source text being lexed.
 
-        lexer_state:
-            Current lexer state. The current position must point to a space
-            or tab character.
+    @param lexer_state Current lexer state. The current position must point to a space or tab
+        character.
 
-    Returns:
-        A tuple containing the produced WHITESPACE token and the updated
-        lexer state after consuming the whitespace.
+    @return A tuple containing the produced WHITESPACE token and the updated lexer state after
+        consuming the whitespace.
     """
     position = lexer_state.position
     offset = position.offset
@@ -1890,17 +2172,13 @@ def _lex_comment(
     not include the terminating newline. The newline remains to be consumed
     separately by _lex_newline().
 
-    Args:
-        input_text:
-            Complete source text being lexed.
+    @param input_text Complete source text being lexed.
 
-        lexer_state:
-            Current lexer state. The current position must point to the '#'
-            character that begins the comment.
+    @param lexer_state Current lexer state. The current position must point to the '#' character
+        that begins the comment.
 
-    Returns:
-        A tuple containing the produced COMMENT token and the updated lexer
-        state after consuming the comment text.
+    @return A tuple containing the produced COMMENT token and the updated lexer state after
+        consuming the comment text.
     """
     position = lexer_state.position
     offset = position.offset
@@ -1941,6 +2219,17 @@ def _raise_lexer_bug(
     location: str,
     details: str | None = None,
 ) -> None:
+    """
+    Raise a BugError located at the current position.
+
+    @param message What went wrong.
+
+    @param lexer_state The lexer state at the current position.
+
+    @param location Where in korml it went wrong.
+
+    @param details More about the failure, if there is more.
+    """
     raise korml.error.BugError(
         message=message,
         location=location,
@@ -1959,6 +2248,15 @@ def _debug_lexer_result(
     token: korml.lexer.v1.Token,
     new_state: LexerState,
 ) -> None:
+    """
+    Print the token just read on standard error, if tracing is on.
+
+    @param old_state The lexer state before the token.
+
+    @param token The token.
+
+    @param new_state The lexer state after it.
+    """
     if not old_state.debug:
         return
 

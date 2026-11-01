@@ -86,7 +86,11 @@ class SchemaError(korml.error.KormlError, ValueError):
     """
 
     def __init__(self, message: str) -> None:
-        """Initialize the error, escaping what message quotes from the schema."""
+        """
+        Initialize the error, escaping what message quotes from the schema.
+
+        @param message What is wrong; it may quote the schema.
+        """
         # Schema messages are one line and interpolate names from the schema
         # document, which may hold control characters.
         super().__init__(
@@ -103,7 +107,11 @@ class ConstructionError(korml.error.KormlError, ValueError):
     """
 
     def __init__(self, error_array: collections.abc.Sequence[ValidationError]) -> None:
-        """Store validation errors and format them as exception text."""
+        """
+        Store validation errors and format them as exception text.
+
+        @param error_array The validation errors, one line of the message each.
+        """
         self.error_array = tuple(error_array)
         super().__init__(
             # One line per error; each line escaped on its own, since the
@@ -126,7 +134,15 @@ class InvalidValueError(korml.error.KormlError, ValueError):
     """
 
     def __init__(self, *, code: ErrorCode, path: tuple[str | int, ...], message: str) -> None:
-        """Store the path of the offending value with the message."""
+        """
+        Store the path of the offending value with the message.
+
+        @param code The error code.
+
+        @param path The path of the offending value.
+
+        @param message What is wrong.
+        """
         self.path = path
         super().__init__(
             message=f"{korml.error.escape_controls(_format_path(path))}: {message}",
@@ -181,7 +197,13 @@ class Schema:
 
 
 def compile_schema(value: Builtin) -> Schema:
-    """Compile a KORML builtin schema document into a checked schema object."""
+    """
+    Compile a KORML builtin schema document into a checked schema object.
+
+    @param value The schema document as plain data.
+
+    @return The schema.
+    """
     if not isinstance(value, dict):
         raise SchemaError("schema document must be a mapping")
 
@@ -237,6 +259,13 @@ class _Walk:
 
 
 def _is_empty_document(value: object) -> bool:
+    """
+    Return whether value stands for an empty document.
+
+    @param value The value.
+
+    @return True for None and for an Empty.
+    """
     return value is None or isinstance(value, korml.model.Empty)
 
 
@@ -259,6 +288,15 @@ def validate(
     InvalidValueError for a value nested deeper or one that contains
     itself; with max_depth None, nesting too deep for Python's recursion
     limit raises it with the code TOO_DEEP too.
+
+    @param value The plain data, or None for an empty document.
+
+    @param schema The compiled schema.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The validation errors, empty if the value is valid.
     """
     _check_schema_type(schema)
     korml._limits.check_max_depth(max_depth)
@@ -288,6 +326,14 @@ def validate(
 
 
 def _too_deep_error(max_depth: int | None) -> InvalidValueError:
+    """
+    Return the error for nesting deeper than max_depth.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The error, with the code TOO_DEEP.
+    """
     return InvalidValueError(
         code=ErrorCode.TOO_DEEP,
         path=(),
@@ -330,6 +376,17 @@ def construct(
     fails, and InvalidValueError (see validate) for a value nested deeper
     than max_depth or containing itself. Construction follows the same path
     through the value as validation, which has already checked both.
+
+    @param value The plain data, or None for an empty document.
+
+    @param schema The compiled schema.
+
+    @param constructor_map The constructor of each type name, or None for none.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The constructed value, or None for an empty document.
     """
     _check_schema_type(schema)
 
@@ -369,7 +426,15 @@ def _compile_type_definition(
     name: str,
     value: dict[str, typing.Any],
 ) -> TypeDefinition:
-    """Compile one named type definition from the schema builtin mapping."""
+    """
+    Compile one named type definition from the schema builtin mapping.
+
+    @param name The name of the type.
+
+    @param value The definition as plain data.
+
+    @return The type definition.
+    """
     kind = value.get("kind")
     if not isinstance(kind, str):
         raise SchemaError(f"types.{name}.kind must be a string")
@@ -399,7 +464,15 @@ def _compile_type_definition(
 
 
 def _compile_required(value: typing.Any, type_name: str) -> tuple[str, ...]:
-    """Compile the required-field sequence for a mapping type."""
+    """
+    Compile the required-field sequence for a mapping type.
+
+    @param value The sequence as plain data.
+
+    @param type_name The name of the type, for messages.
+
+    @return The field names.
+    """
     if not isinstance(value, list):
         raise SchemaError(f"types.{type_name}.required must be a sequence")
 
@@ -415,7 +488,15 @@ def _compile_required(value: typing.Any, type_name: str) -> tuple[str, ...]:
 
 
 def _compile_fields(value: typing.Any, type_name: str) -> dict[str, TypeReference]:
-    """Compile the named-field map for a mapping type."""
+    """
+    Compile the named-field map for a mapping type.
+
+    @param value The mapping as plain data.
+
+    @param type_name The name of the type, for messages.
+
+    @return The type of each field.
+    """
     if not isinstance(value, dict):
         raise SchemaError(f"types.{type_name}.fields must be a mapping")
 
@@ -434,7 +515,15 @@ def _compile_fields(value: typing.Any, type_name: str) -> dict[str, TypeReferenc
 
 
 def _compile_enum(value: typing.Any, type_name: str) -> tuple[str, ...]:
-    """Compile the allowed string values for an enum type."""
+    """
+    Compile the allowed string values for an enum type.
+
+    @param value The sequence as plain data.
+
+    @param type_name The name of the type, for messages.
+
+    @return The values allowed.
+    """
     if not isinstance(value, list):
         raise SchemaError(f"types.{type_name}.enum must be a sequence")
 
@@ -454,7 +543,17 @@ def _compile_optional_type_reference(
     key: str,
     path: tuple[str | int, ...],
 ) -> TypeReference | None:
-    """Compile an optional nested type reference field."""
+    """
+    Compile an optional nested type reference field.
+
+    @param value The mapping that may hold the field.
+
+    @param key The name of the field.
+
+    @param path The path of this part of the schema, for messages.
+
+    @return The reference, or None if the field is absent.
+    """
     if key not in value:
         return None
 
@@ -465,7 +564,15 @@ def _compile_type_reference(
     value: typing.Any,
     path: tuple[str | int, ...],
 ) -> TypeReference:
-    """Compile a mapping of the form {type: TypeName}."""
+    """
+    Compile a mapping of the form {type: TypeName}.
+
+    @param value The mapping as plain data.
+
+    @param path The path of this part of the schema, for messages.
+
+    @return The reference.
+    """
     if not isinstance(value, dict):
         raise SchemaError(f"{_format_path(path)} must be a mapping")
 
@@ -480,7 +587,15 @@ def _compile_optional_integer(
     value: typing.Any,
     path: tuple[str | int, ...],
 ) -> int | None:
-    """Compile an optional integer scalar from schema builtin text."""
+    """
+    Compile an optional integer scalar from schema builtin text.
+
+    @param value The scalar as plain data, or None if it is absent.
+
+    @param path The path of this part of the schema, for messages.
+
+    @return The integer, or None if it is absent.
+    """
     if value is None:
         return None
 
@@ -503,7 +618,15 @@ def _check_reference_exists(
     reference: TypeReference,
     path: tuple[str | int, ...],
 ) -> None:
-    """Ensure that a type reference points at a declared schema type."""
+    """
+    Ensure that a type reference points at a declared schema type.
+
+    @param schema The schema.
+
+    @param reference The reference to check.
+
+    @param path The path of this part of the schema, for messages.
+    """
     if reference.name not in schema.types:
         raise SchemaError(f"{_format_path(path)} references unknown type {reference.name!r}")
 
@@ -512,7 +635,13 @@ def _check_type_definition_references(
     schema: Schema,
     type_definition: TypeDefinition,
 ) -> None:
-    """Check all nested type references used by a type definition."""
+    """
+    Check all nested type references used by a type definition.
+
+    @param schema The schema.
+
+    @param type_definition The type to check.
+    """
     for field_name, reference in type_definition.fields.items():
         _check_reference_exists(
             schema,
@@ -536,7 +665,11 @@ def _check_type_definition_references(
 
 
 def _check_type_definition_consistency(type_definition: TypeDefinition) -> None:
-    """Check kind-specific invariants within a type definition."""
+    """
+    Check kind-specific invariants within a type definition.
+
+    @param type_definition The type to check.
+    """
     if type_definition.kind == "sequence" and type_definition.items is None:
         raise SchemaError(f"types.{type_definition.name}.items is required for sequence types")
 
@@ -566,7 +699,21 @@ def _validate_type(
     path: tuple[str | int, ...],
     walk: _Walk,
 ) -> list[ValidationError]:
-    """Dispatch validation for one value against a named schema type."""
+    """
+    Dispatch validation for one value against a named schema type.
+
+    @param value The value to validate.
+
+    @param schema The compiled schema.
+
+    @param type_name The name of the type.
+
+    @param path The path of the value, for diagnostics.
+
+    @param walk What validation tracks along the path.
+
+    @return The validation errors, empty if the value is valid.
+    """
     type_definition = schema.types.get(type_name)
 
     if type_definition is None:
@@ -612,7 +759,17 @@ def _validate_scalar(
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
 ) -> list[ValidationError]:
-    """Validate a builtin scalar string against scalar subtype rules."""
+    """
+    Validate a builtin scalar string against scalar subtype rules.
+
+    @param value The value to validate.
+
+    @param type_definition The type to validate against.
+
+    @param path The path of the value, for diagnostics.
+
+    @return The validation errors, empty if the value is valid.
+    """
     if not isinstance(value, str):
         return [
             ValidationError(
@@ -666,7 +823,17 @@ def _validate_integer_scalar(
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
 ) -> list[ValidationError]:
-    """Validate integer spelling and optional integer range bounds."""
+    """
+    Validate integer spelling and optional integer range bounds.
+
+    @param value The text of the scalar.
+
+    @param type_definition The type to validate against.
+
+    @param path The path of the value, for diagnostics.
+
+    @return The validation errors, empty if the value is valid.
+    """
     if not _INTEGER_PATTERN.fullmatch(value):
         return [
             ValidationError(
@@ -721,6 +888,18 @@ def _validate_collection(
     walk.active_id_set holds the containers on the path from the root to
     value; meeting one of them again means the value contains itself. A
     container shared by two branches is not a cycle.
+
+    @param value The list or dict to validate.
+
+    @param schema The compiled schema.
+
+    @param type_definition The type to validate against.
+
+    @param path The path of the value, for diagnostics.
+
+    @param walk What validation tracks along the path.
+
+    @return The validation errors, empty if the value is valid.
     """
     active_id_set = walk.active_id_set
 
@@ -756,7 +935,21 @@ def _validate_sequence(
     path: tuple[str | int, ...],
     walk: _Walk,
 ) -> list[ValidationError]:
-    """Validate a builtin sequence and each item against its item type."""
+    """
+    Validate a builtin sequence and each item against its item type.
+
+    @param value The value to validate.
+
+    @param schema The compiled schema.
+
+    @param type_definition The type to validate against.
+
+    @param path The path of the value, for diagnostics.
+
+    @param walk What validation tracks along the path.
+
+    @return The validation errors, empty if the value is valid.
+    """
     if not isinstance(value, list):
         return [
             ValidationError(
@@ -798,7 +991,21 @@ def _validate_mapping(
     path: tuple[str | int, ...],
     walk: _Walk,
 ) -> list[ValidationError]:
-    """Validate a builtin mapping against required, field, and value rules."""
+    """
+    Validate a builtin mapping against required, field, and value rules.
+
+    @param value The value to validate.
+
+    @param schema The compiled schema.
+
+    @param type_definition The type to validate against.
+
+    @param path The path of the value, for diagnostics.
+
+    @param walk What validation tracks along the path.
+
+    @return The validation errors, empty if the value is valid.
+    """
     if not isinstance(value, dict):
         return [
             ValidationError(
@@ -854,7 +1061,17 @@ def _validate_enum(
     type_definition: TypeDefinition,
     path: tuple[str | int, ...],
 ) -> list[ValidationError]:
-    """Validate a builtin scalar against an enum value set."""
+    """
+    Validate a builtin scalar against an enum value set.
+
+    @param value The value to validate.
+
+    @param type_definition The type to validate against.
+
+    @param path The path of the value, for diagnostics.
+
+    @return The validation errors, empty if the value is valid.
+    """
     if not isinstance(value, str):
         return [
             ValidationError(
@@ -883,7 +1100,19 @@ def _construct_type(
     type_name: str,
     constructor_map: collections.abc.Mapping[str, collections.abc.Callable[..., object]],
 ) -> object:
-    """Construct one value by first constructing children, then applying a constructor."""
+    """
+    Construct one value by first constructing children, then applying a constructor.
+
+    @param value The validated value.
+
+    @param schema The compiled schema.
+
+    @param type_name The name of the type.
+
+    @param constructor_map The constructor of each type name.
+
+    @return The constructed value.
+    """
     type_definition = schema.types[type_name]
 
     match type_definition.kind:
@@ -952,13 +1181,23 @@ def _construct_type(
 
 
 def _check_schema_type(schema: Schema) -> None:
-    """Reject non-v1 schema objects passed into v1 API functions."""
+    """
+    Reject non-v1 schema objects passed into v1 API functions.
+
+    @param schema The object to check.
+    """
     if not isinstance(schema, Schema):
         raise TypeError("schema must be a compiled korml.schema.v1.Schema")
 
 
 def _format_path(path: tuple[str | int, ...]) -> str:
-    """Format a diagnostic path as compact dotted/indexed text."""
+    """
+    Format a diagnostic path as compact dotted/indexed text.
+
+    @param path The keys and indices of the path.
+
+    @return The text, or '<root>' for an empty path.
+    """
     if not path:
         return "<root>"
 

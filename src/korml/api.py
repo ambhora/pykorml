@@ -41,6 +41,23 @@ def loads(
     collections (deeper is a ParseError with the code TOO_DEEP; with None,
     nesting too deep for Python's recursion limit raises the same error).
     An empty document is an Empty in the stream.
+
+    @param input_text The Korml source text.
+
+    @param filename The name of the source, for diagnostics.
+
+    @param debug Whether to trace the lexer on standard error.
+
+    @param max_input_bytes The largest source accepted, in bytes, or None for no limit.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @param max_parse_work The largest amount of parser work accepted, or None for no limit.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The stream of documents, an Empty for each document without content.
     """
     korml._limits.check_max_depth(max_depth)
     korml._limits.check_input_size(input_text, max_input_bytes=max_input_bytes, filename=filename)
@@ -86,6 +103,21 @@ def load(
     device such as /dev/zero never ends. The file is opened without
     blocking and checked after opening, so it cannot be swapped for a FIFO
     between the check and the read.
+
+    @param filename The path of the file.
+
+    @param debug Whether to trace the lexer on standard error.
+
+    @param max_input_bytes The largest source accepted, in bytes, or None for no limit.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @param max_parse_work The largest amount of parser work accepted, or None for no limit.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The stream of documents, an Empty for each document without content.
     """
     korml._limits.check_max_depth(max_depth)
     path = pathlib.Path(filename)
@@ -118,6 +150,13 @@ def load(
 
 
 def _open_regular_file(path: pathlib.Path) -> typing.BinaryIO:
+    """
+    Open path for reading without blocking, refusing anything but a regular file.
+
+    @param path The path of the file.
+
+    @return The file, open for reading bytes.
+    """
     descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
 
     try:
@@ -153,6 +192,15 @@ def dumps(
     or a container that contains itself, is an EmitError. With None there
     is no korml limit, and nesting too deep for Python's recursion limit is
     an EmitError with the code TOO_DEEP.
+
+    @param value A stream, a korml value, or plain Python data.
+
+    @param version The language version to write.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The Korml source.
     """
     korml._limits.check_max_depth(max_depth)
 
@@ -188,6 +236,18 @@ def dump(
     A symbolic link at filename is refused with UnsafeOutputError unless
     dangerous_allow_writing_to_symlink is true; then the file it points to
     is replaced and the link is kept.
+
+    @param value A stream, a korml value, or plain Python data.
+
+    @param filename The path of the output file.
+
+    @param version The language version to write.
+
+    @param dangerous_allow_writing_to_symlink Whether to replace the file a symbolic link at the
+        path points to, rather than refuse.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
     """
     korml._atomic.write_bytes(
         filename,
@@ -202,6 +262,18 @@ def _make_stream(
     version: korml.model.Version,
     max_depth: int | None,
 ) -> korml.model.Stream[korml.lexer.v1.Token]:
+    """
+    Return value as a stream, whichever form dumps received it in.
+
+    @param value A stream, a korml value, or plain Python data.
+
+    @param version The language version of a new stream.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The stream to emit.
+    """
     if isinstance(value, korml.model.Stream):
         return value
 
@@ -244,6 +316,19 @@ def _make_value(
     itself, with an EmitError instead of a RecursionError. active_id_set
     holds the containers on the current path; a container shared by two
     branches is not a cycle and is written twice.
+
+    @param value The plain Python value.
+
+    @param version The language version of the new value.
+
+    @param depth The number of collections around this value.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @param active_id_set The identities of the containers on the path to this value.
+
+    @return The korml value.
     """
     if isinstance(value, str):
         return korml.model.Scalar[korml.lexer.v1.Token](
@@ -353,6 +438,15 @@ def edit(
     deeper and has at most a few tokens more per replacement. The work is
     bounded by the size of the stream and the replacements the caller
     passes, not by anything an untrusted source can choose.
+
+    @param stream The stream as loaded, whose tokens give the source.
+
+    @param replacements Pairs of a value of the stream and the string it becomes.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The edited source.
     """
     korml._limits.check_max_depth(max_depth)
     token_array = stream.token_array
@@ -428,7 +522,19 @@ def _splice_for(
     index_map: dict[int, int],
     is_root: bool,
 ) -> tuple[int, int, str]:
-    """Return the token range a replaced value covers and the text it becomes."""
+    """
+    Return the token range a replaced value covers and the text it becomes.
+
+    @param value The value being replaced.
+
+    @param text The string it becomes.
+
+    @param index_map The position in the stream of each token, by identity.
+
+    @param is_root Whether the value is the root of its document.
+
+    @return The first token index, the index after the last, and the replacing text.
+    """
     content_array = [token for token in value.token_array if token.type not in _TRIVIA_SET]
     if not content_array:
         raise ValueError("replacement value has no tokens")
@@ -468,6 +574,16 @@ def _splice_for_empty(
     In v1 that is the start of the line after '---', whose line break the
     body starts with; in v0 it is the start of the source. The scalar gets
     its own line, ended with the line break the source uses.
+
+    @param value The empty document being replaced.
+
+    @param text The string it becomes.
+
+    @param stream The stream that holds the document.
+
+    @param index_map The position in the stream of each token, by identity.
+
+    @return The token index to insert at, twice, and the text to insert.
     """
     line_break = next(
         (token.value for token in stream.token_array if token.type is _NEWLINE),
@@ -487,6 +603,13 @@ def _splice_for_empty(
 
 
 def _final_line_break(value: str) -> str:
+    """
+    Return the line break that ends value.
+
+    @param value The source text of a token.
+
+    @return The line break, or an empty string if there is none.
+    """
     for line_break in ("\r\n", "\n", "\r"):
         if value.endswith(line_break):
             return line_break
@@ -496,7 +619,13 @@ def _final_line_break(value: str) -> str:
 def _value_path_map(
     stream: korml.model.Stream[korml.lexer.v1.Token],
 ) -> dict[int, tuple[int | str, ...]]:
-    """Map the identity of every value of a stream to its path."""
+    """
+    Map the identity of every value of a stream to its path.
+
+    @param stream The stream to walk.
+
+    @return The path of each value, by identity: the document index, then keys and sequence indices.
+    """
     path_map: dict[int, tuple[int | str, ...]] = {}
     pending: list[tuple[korml.model.Value[korml.lexer.v1.Token], tuple[int | str, ...]]] = [
         (document, (index,)) for index, document in enumerate(stream.document_array)
@@ -512,6 +641,15 @@ def _value_path_map(
 
 
 def _set_path(builtin: list[object], path: tuple[int | str, ...], text: str) -> None:
+    """
+    Replace the value at path in plain data with text.
+
+    @param builtin The plain data of the stream, one item per document.
+
+    @param path The path of the value, as from _value_path_map.
+
+    @param text The string it becomes.
+    """
     container: typing.Any = builtin
     for part in path[:-1]:
         container = container[part]

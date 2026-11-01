@@ -45,7 +45,13 @@ class ColorPolicy:
 
     @classmethod
     def from_stream(cls, stream: typing.Any) -> "ColorPolicy":
-        """Return the policy for stream: colour only on a terminal."""
+        """
+        Return the policy for stream: colour only on a terminal.
+
+        @param stream The stream the report goes to.
+
+        @return A policy that enables colour if stream is a terminal.
+        """
         enabled = hasattr(stream, "isatty") and stream.isatty()
         return cls(enabled=enabled)
 
@@ -58,7 +64,15 @@ class TextStyler:
     """The policy that decides whether styles are applied."""
 
     def style(self, text: str, *styles: AnsiCode) -> str:
-        """Return text with styles applied, or unchanged if colour is off."""
+        """
+        Return text with styles applied, or unchanged if colour is off.
+
+        @param text The text to style.
+
+        @param styles The styles to apply.
+
+        @return The text, between escape sequences if colour is on.
+        """
         if not self.color_policy.enabled:
             return text
 
@@ -75,6 +89,8 @@ def issues_url() -> str | None:
     metadata never disagree. Without installed metadata, as when korml runs
     from a source tree, or without an Issues entry, it is None: the report
     then says where to look rather than naming a URL that may be wrong.
+
+    @return The URL, or None if the metadata names none.
     """
     try:
         metadata = importlib.metadata.metadata("korml")
@@ -109,6 +125,11 @@ class InternalFailureReport:
     """What the report needs to know about the project."""
 
     def _where_to_report(self) -> str:
+        """
+        Return the sentence that says where to report the failure.
+
+        @return The sentence, with the issue tracker if it is known.
+        """
         if self.config.url is not None:
             return f"If you would like to report this, please open an issue at: {self.config.url}"
 
@@ -119,7 +140,11 @@ class InternalFailureReport:
         )
 
     def render(self) -> str:
-        """Return the report as text, with untrusted text escaped."""
+        """
+        Return the report as text, with untrusted text escaped.
+
+        @return The whole report.
+        """
         return "\n".join(
             [
                 self.styler.style(
@@ -172,12 +197,24 @@ def _escape_lines(text: str) -> str:
     input that caused the failure, so they are untrusted text: a terminal
     control in them must not reach the terminal raw, as in every other
     diagnostic (see korml.error.escape_controls).
+
+    @param text Text that may quote the input.
+
+    @return The text, escaped line by line.
     """
     return "\n".join(korml.error.escape_controls(line) for line in text.split("\n"))
 
 
 def render_internal_failure_report(exc: Exception, stream: typing.Any) -> str:
-    """Return the report for exc, styled for the terminal stream if it is one."""
+    """
+    Return the report for exc, styled for the terminal stream if it is one.
+
+    @param exc The exception that korml did not expect.
+
+    @param stream The stream the report goes to.
+
+    @return The report as text.
+    """
     color_policy = ColorPolicy.from_stream(stream)
     styler = TextStyler(color_policy=color_policy)
     report = InternalFailureReport(exc=exc, styler=styler)

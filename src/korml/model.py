@@ -74,12 +74,20 @@ class CST(typing.Generic[ConcreteToken]):
 
     @property
     def source(self) -> str:
-        """The source text of the tokens."""
+        """
+        The source text of the tokens.
+
+        @return The values of the tokens joined.
+        """
         return "".join(token.value for token in self.token_array)
 
     @property
     def span(self) -> korml.core.Span:
-        """The span from the first token to the last, or an empty span if there are none."""
+        """
+        The span from the first token to the last, or an empty span if there are none.
+
+        @return The span.
+        """
         if not self.token_array:
             return korml.core.Span.empty()
 
@@ -93,6 +101,13 @@ def _make_empty_cst(
     *,
     version: Version,
 ) -> CST[ConcreteToken]:
+    """
+    Return a CST without tokens.
+
+    @param version The language version.
+
+    @return The CST.
+    """
     return CST(
         version=version,
         token_array=(),
@@ -104,6 +119,13 @@ def _check_value_version(
     parent_version: Version,
     child: "Value[ConcreteToken]",
 ) -> None:
+    """
+    Raise a ValueError if child is of another version than its parent.
+
+    @param parent_version The language version of the parent.
+
+    @param child The value being added.
+    """
     if child.version != parent_version:
         raise ValueError(
             f"value version {child.version.value!r} does not match "
@@ -116,6 +138,13 @@ def _check_value_array_version(
     parent_version: Version,
     value_array: collections.abc.Iterable["Value[ConcreteToken]"],
 ) -> None:
+    """
+    Raise a ValueError if a value is of another version than its parent.
+
+    @param parent_version The language version of the parent.
+
+    @param value_array The values being added.
+    """
     for value in value_array:
         _check_value_version(
             parent_version=parent_version,
@@ -124,12 +153,24 @@ def _check_value_array_version(
 
 
 def _check_not_empty(child: "Value[ConcreteToken]") -> None:
-    """Refuse an Empty as a mapping value or sequence entry; it is only a document root."""
+    """
+    Refuse an Empty as a mapping value or sequence entry; it is only a document root.
+
+    @param child The value being added.
+    """
     if isinstance(child, Empty):
         raise TypeError("an empty document can only be the root of a document")
 
 
 def _too_deep_error(max_depth: int | None) -> korml.error.KormlError:
+    """
+    Return the error for nesting deeper than max_depth.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The error, with the code TOO_DEEP.
+    """
     return korml.error.KormlError(
         message=korml._limits.too_deep_message(max_depth),
         code="TOO_DEEP",
@@ -142,7 +183,18 @@ def _builtin_of(
     depth: int,
     max_depth: int | None,
 ) -> object:
-    """Convert value to plain Python data; depth counts the collections around it."""
+    """
+    Convert value to plain Python data; depth counts the collections around it.
+
+    @param value The value to convert.
+
+    @param depth The number of collections around it.
+
+    @param max_depth The deepest nesting of collections converted, or None for no limit imposed by
+        korml.
+
+    @return The plain data.
+    """
     if isinstance(value, (Sequence, Mapping)) and korml._limits.is_too_deep(depth, max_depth):
         raise _too_deep_error(max_depth)
 
@@ -165,6 +217,13 @@ def _to_builtin(value: "Value[ConcreteToken]", *, max_depth: int | None) -> obje
     Convert a value, refusing nesting deeper than max_depth with a TOO_DEEP error.
 
     With max_depth None, a RecursionError from Python becomes the same error.
+
+    @param value The value to convert.
+
+    @param max_depth The deepest nesting of collections converted, or None for no limit imposed by
+        korml.
+
+    @return The plain data.
     """
     korml._limits.check_max_depth(max_depth)
 
@@ -185,6 +244,7 @@ class Value(typing.Generic[ConcreteToken]):
     """The tokens the value was read from; they do not count when comparing values."""
 
     def __post_init__(self) -> None:
+        """Check the version of every child, and that no child is an Empty."""
         _check_value_array_version(
             parent_version=self.version,
             value_array=self.child_array,
@@ -195,27 +255,47 @@ class Value(typing.Generic[ConcreteToken]):
 
     @property
     def child_array(self) -> tuple["Value[ConcreteToken]", ...]:
-        """The values directly inside this one."""
+        """
+        The values directly inside this one.
+
+        @return The children, none for a scalar.
+        """
         return ()
 
     @property
     def version(self) -> Version:
-        """The language version of the value."""
+        """
+        The language version of the value.
+
+        @return The version of the CST.
+        """
         return self.cst.version
 
     @property
     def token_array(self) -> tuple[ConcreteToken, ...]:
-        """The concrete tokens of the value."""
+        """
+        The concrete tokens of the value.
+
+        @return The tokens of the CST.
+        """
         return self.cst.token_array
 
     @property
     def source(self) -> str:
-        """The source text of the value."""
+        """
+        The source text of the value.
+
+        @return The values of the tokens joined.
+        """
         return self.cst.source
 
     @property
     def span(self) -> korml.core.Span:
-        """The span of the value."""
+        """
+        The span of the value.
+
+        @return The span of the CST.
+        """
         return self.cst.span
 
     def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> object:
@@ -225,6 +305,11 @@ class Value(typing.Generic[ConcreteToken]):
         max_depth is the deepest nesting of collections converted; deeper
         nesting raises a KormlError with the code TOO_DEEP. None removes
         the limit, and a RecursionError from Python raises the same error.
+
+        @param max_depth The deepest nesting of collections converted, or None for no limit imposed
+            by korml.
+
+        @return A dict, a list, a str, or None for an Empty.
         """
         raise NotImplementedError(f"{type(self).__name__}.to_builtin() is not implemented")
 
@@ -232,18 +317,32 @@ class Value(typing.Generic[ConcreteToken]):
         self,
         style: Style,
     ) -> "Value[ConcreteToken]":
-        """Return the value in another style; no version implements this yet."""
+        """
+        Return the value in another style; no version implements this yet.
+
+        @param style The style to convert to.
+
+        @return The value in that style.
+        """
         raise NotImplementedError(
             "flow/block CST conversion must be implemented by the "
             "version-specific lexer/CST generator"
         )
 
     def to_flow(self) -> "Value[ConcreteToken]":
-        """Return the value in flow style; see with_style."""
+        """
+        Return the value in flow style; see with_style.
+
+        @return The value in flow style.
+        """
         return self.with_style(Style.flow)
 
     def to_block(self) -> "Value[ConcreteToken]":
-        """Return the value in block style; see with_style."""
+        """
+        Return the value in block style; see with_style.
+
+        @return The value in block style.
+        """
         return self.with_style(Style.block)
 
 
@@ -255,7 +354,14 @@ class Scalar(Value[ConcreteToken]):
     """The string the scalar denotes. Every Korml scalar is text."""
 
     def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> str:
-        """Return the string of the scalar; max_depth is only validated."""
+        """
+        Return the string of the scalar; max_depth is only validated.
+
+        @param max_depth The deepest nesting of collections converted, or None for no limit imposed
+            by korml.
+
+        @return The string.
+        """
         korml._limits.check_max_depth(max_depth)
         return self.value
 
@@ -274,16 +380,39 @@ class Sequence(Value[ConcreteToken], collections.abc.Sequence[Value[ConcreteToke
 
     @property
     def child_array(self) -> tuple[Value[ConcreteToken], ...]:
-        """The values of the sequence."""
+        """
+        The values of the sequence.
+
+        @return The values, in order.
+        """
         return tuple(self.value_array)
 
     def __len__(self) -> int:
+        """
+        Return the number of values.
+
+        @return The number of values.
+        """
         return len(self.value_array)
 
     def __getitem__(self, index: int) -> Value[ConcreteToken]:
+        """
+        Return the value at an index.
+
+        @param index The index.
+
+        @return The value.
+        """
         return self.value_array[index]
 
     def __setitem__(self, index: int, value: object) -> None:
+        """
+        Set the value at an index from plain Python data.
+
+        @param index The index.
+
+        @param value The plain Python data.
+        """
         self.value_array[index] = _make_value_from_raw(
             value,
             version=self.version,
@@ -293,7 +422,11 @@ class Sequence(Value[ConcreteToken], collections.abc.Sequence[Value[ConcreteToke
         self,
         value: Value[ConcreteToken],
     ) -> None:
-        """Add a value at the end, refusing another version or an Empty."""
+        """
+        Add a value at the end, refusing another version or an Empty.
+
+        @param value The value to add.
+        """
         if not isinstance(value, Value):
             raise TypeError("append() only accepts KORML values")
 
@@ -308,7 +441,14 @@ class Sequence(Value[ConcreteToken], collections.abc.Sequence[Value[ConcreteToke
     def to_builtin(
         self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH
     ) -> list[object]:
-        """Return the sequence as a list; see Value.to_builtin."""
+        """
+        Return the sequence as a list; see Value.to_builtin.
+
+        @param max_depth The deepest nesting of collections converted, or None for no limit imposed
+            by korml.
+
+        @return The list.
+        """
         return typing.cast(list[object], _to_builtin(self, max_depth=max_depth))
 
 
@@ -326,19 +466,47 @@ class Mapping(Value[ConcreteToken], collections.abc.Mapping[str, Value[ConcreteT
 
     @property
     def child_array(self) -> tuple[Value[ConcreteToken], ...]:
-        """The values of the mapping."""
+        """
+        The values of the mapping.
+
+        @return The values, in order.
+        """
         return tuple(self.value_map.values())
 
     def __len__(self) -> int:
+        """
+        Return the number of entries.
+
+        @return The number of entries.
+        """
         return len(self.value_map)
 
     def __iter__(self) -> collections.abc.Iterator[str]:
+        """
+        Iterate over the keys in source order.
+
+        @return An iterator of keys.
+        """
         return iter(self.value_map)
 
     def __getitem__(self, key: str) -> Value[ConcreteToken]:
+        """
+        Return the value of a key.
+
+        @param key The key.
+
+        @return The value.
+        """
         return self.value_map[key]
 
     def __setitem__(self, key: str, value: object) -> None:
+        """
+        Set the value of a key from plain Python data.
+
+        @param key The key.
+
+        @param value The plain Python data.
+        """
         if not isinstance(key, str):
             raise TypeError("mapping keys must be strings")
 
@@ -352,7 +520,13 @@ class Mapping(Value[ConcreteToken], collections.abc.Mapping[str, Value[ConcreteT
         key: str,
         value: Value[ConcreteToken],
     ) -> None:
-        """Set the value of key, refusing another version or an Empty."""
+        """
+        Set the value of key, refusing another version or an Empty.
+
+        @param key The key.
+
+        @param value The value to set.
+        """
         if not isinstance(key, str):
             raise TypeError("mapping keys must be strings")
 
@@ -370,7 +544,14 @@ class Mapping(Value[ConcreteToken], collections.abc.Mapping[str, Value[ConcreteT
     def to_builtin(
         self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH
     ) -> dict[str, object]:
-        """Return the mapping as a dict; see Value.to_builtin."""
+        """
+        Return the mapping as a dict; see Value.to_builtin.
+
+        @param max_depth The deepest nesting of collections converted, or None for no limit imposed
+            by korml.
+
+        @return The dict.
+        """
         return typing.cast(dict[str, object], _to_builtin(self, max_depth=max_depth))
 
 
@@ -394,7 +575,11 @@ class Empty(Value[ConcreteToken]):
     """
 
     def to_builtin(self, *, max_depth: int | None = korml._limits.MAX_NESTING_DEPTH) -> None:
-        """Return None; max_depth is only validated."""
+        """
+        Return None; max_depth is only validated.
+
+        @param max_depth A limit to validate; nothing is nested here.
+        """
         korml._limits.check_max_depth(max_depth)
         return None
 
@@ -414,6 +599,7 @@ class Stream(typing.Generic[ConcreteToken]):
     """Every token of the source."""
 
     def __post_init__(self) -> None:
+        """Check the version of every document."""
         _check_value_array_version(
             parent_version=self.version,
             value_array=self.document_array,
@@ -421,35 +607,67 @@ class Stream(typing.Generic[ConcreteToken]):
 
     @property
     def version(self) -> Version:
-        """The language version of the source."""
+        """
+        The language version of the source.
+
+        @return The version of the CST.
+        """
         return self.cst.version
 
     @property
     def token_array(self) -> tuple[ConcreteToken, ...]:
-        """Every token of the source."""
+        """
+        Every token of the source.
+
+        @return The tokens of the CST.
+        """
         return self.cst.token_array
 
     @property
     def source(self) -> str:
-        """The source text, exactly as it was read."""
+        """
+        The source text, exactly as it was read.
+
+        @return The values of the tokens joined.
+        """
         return self.cst.source
 
     @property
     def span(self) -> korml.core.Span:
-        """The span of the source."""
+        """
+        The span of the source.
+
+        @return The span of the CST.
+        """
         return self.cst.span
 
     def __len__(self) -> int:
+        """
+        Return the number of documents.
+
+        @return The number of documents.
+        """
         return len(self.document_array)
 
     def __getitem__(self, index: int) -> Value[ConcreteToken]:
+        """
+        Return the document at an index.
+
+        @param index The index.
+
+        @return The document.
+        """
         return self.document_array[index]
 
     def append(
         self,
         value: Value[ConcreteToken],
     ) -> None:
-        """Add a document, refusing a value of another version."""
+        """
+        Add a document, refusing a value of another version.
+
+        @param value The document to add.
+        """
         if not isinstance(value, Value):
             raise TypeError("append() only accepts KORML values")
 
@@ -467,6 +685,11 @@ class Stream(typing.Generic[ConcreteToken]):
         Return one plain Python value per document; None for an empty document.
 
         max_depth limits the nesting of each document; see Value.to_builtin.
+
+        @param max_depth The deepest nesting of collections converted, or None for no limit imposed
+            by korml.
+
+        @return A list with the plain data of each document.
         """
         return [_to_builtin(document, max_depth=max_depth) for document in self.document_array]
 
@@ -476,6 +699,15 @@ def _make_value_from_raw(
     *,
     version: Version,
 ) -> Value[ConcreteToken]:
+    """
+    Convert plain Python data into a korml value without tokens.
+
+    @param value The plain Python data.
+
+    @param version The language version of the new value.
+
+    @return The korml value.
+    """
     if isinstance(value, Value):
         raise TypeError(
             "raw assignment does not accept KORML values; use add_item() or append() instead"

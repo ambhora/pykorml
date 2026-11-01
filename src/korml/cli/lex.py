@@ -22,6 +22,8 @@ def run(args: argparse.Namespace) -> None:
     the output encoded as UTF-8; input that is not UTF-8 is a CompilerError.
     A named input must be a regular file, as for korml.load; a pipe goes
     through standard input.
+
+    @param args The parsed command line.
     """
     input_path: pathlib.Path = args.input
 

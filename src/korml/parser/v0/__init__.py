@@ -31,6 +31,17 @@ def parse(
 
     An empty or blank-only source is one empty document, an Empty.
     max_depth limits the nesting of collections as for the v1 parser.
+
+    @param file The tokenized file, of version v0.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @param max_work The largest amount of parser work accepted, or None for no limit.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The stream of documents.
     """
     if file.version is not korml.model.Version.v0:
         raise ValueError(f"parser v0 cannot parse version {file.version.value!r}")

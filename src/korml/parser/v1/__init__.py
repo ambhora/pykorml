@@ -49,6 +49,11 @@ class ErrorCode(str, enum.Enum):
     """A document without its '...'."""
 
     def __str__(self) -> str:
+        """
+        Return the code as text.
+
+        @return The value of the code.
+        """
         return self.value
 
 
@@ -126,6 +131,13 @@ class _ParseBudget:
 
 
 def _check_tokens(file: korml.lexer.v1.File, max_tokens: int | None) -> None:
+    """
+    Raise a CompilerError if file has more tokens than max_tokens.
+
+    @param file The tokenized file.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+    """
     if max_tokens is not None and len(file.token_array) > max_tokens:
         raise korml.error.CompilerError(
             message=f"token count exceeds {max_tokens}",
@@ -138,7 +150,14 @@ def _check_flow_depth(
     file: korml.lexer.v1.File,
     max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> None:
-    """Reject excessive flow nesting before its recursive parsing work starts."""
+    """
+    Reject excessive flow nesting before its recursive parsing work starts.
+
+    @param file The tokenized file.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+    """
     if max_depth is None:
         return
 
@@ -179,6 +198,17 @@ def parse(
     max_depth is the deepest nesting of collections accepted; deeper
     nesting is a ParseError with the code TOO_DEEP. None removes the limit,
     and nesting too deep for Python's recursion limit raises the same error.
+
+    @param file The tokenized file, of version v1.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @param max_work The largest amount of parser work accepted, or None for no limit.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The stream of documents.
     """
     if file.version is not korml.model.Version.v1:
         raise ValueError(f"parser v1 cannot parse version {file.version.value!r}")
@@ -226,6 +256,19 @@ def _parse_document(
 
     A RecursionError, possible only when max_depth is None or larger than
     Python can recurse, becomes a ParseError with the code TOO_DEEP.
+
+    @param token_array The concrete tokens of the document body.
+
+    @param version The language version.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @param budget The work left, shared between the documents of a source.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The root value, or an Empty.
     """
     try:
         root = _parse_body(
@@ -263,6 +306,12 @@ def _iter_document_body_token_arrays(
     Outside documents only the directive and trivia may appear, and every
     document must be closed by '...'; the lexer guarantees both, and the
     parser checks them again for token arrays built by other means.
+
+    @param token_array Every token of the source.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @return The tokens of each document body.
     """
     in_document = False
     start = 0
@@ -308,6 +357,14 @@ def _parse_scalar(
 
     A block scalar parsed on its own has no owner, so its content indentation
     is that of its first content line.
+
+    @param token_array The tokens of the scalar.
+
+    @param version The language version.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @return The scalar.
     """
     concrete_token_array = tuple(token_array)
     semantic_token_array = _without_trivia(concrete_token_array)
@@ -343,11 +400,26 @@ def _parse_scalar(
 def _without_trivia(
     token_array: collections.abc.Sequence[korml.lexer.v1.Token],
 ) -> tuple[korml.lexer.v1.Token, ...]:
+    """
+    Return the tokens that carry meaning.
+
+    @param token_array The concrete tokens.
+
+    @return The tokens, without whitespace, comments and line breaks.
+    """
     return tuple(token for token in token_array if token.type not in _TRIVIA_TOKEN_TYPE_SET)
 
 
 def _decode_flow_scalar(token: korml.lexer.v1.Token, *, source_name: str) -> str:
-    """Return the string a plain, single-quoted or double-quoted scalar token denotes."""
+    """
+    Return the string a plain, single-quoted or double-quoted scalar token denotes.
+
+    @param token The scalar token.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @return The string.
+    """
     match token.type:
         case korml.lexer.v1.TokenType.PLAIN_SCALAR:
             return token.value
@@ -376,6 +448,13 @@ def _decode_flow_scalar(token: korml.lexer.v1.Token, *, source_name: str) -> str
 
 
 def _parse_single_quoted_scalar_value(source: str) -> str:
+    """
+    Decode a single-quoted scalar.
+
+    @param source The source text of the scalar, quotes included.
+
+    @return The string.
+    """
     return source[1:-1].replace("''", "'")
 
 
@@ -388,6 +467,10 @@ def _parse_double_quoted_scalar_value(source: str) -> str:
     escape and an escape of a surrogate or of a code point above U+10FFFF
     are errors rather than text, so a value can never hold half of a
     character or something no encoder can write.
+
+    @param source The source text of the scalar, quotes included.
+
+    @return The string.
     """
     content = source[1:-1]
     output: list[str] = []
@@ -428,6 +511,13 @@ def _parse_double_quoted_scalar_value(source: str) -> str:
 
 
 def _is_hex(text: str) -> bool:
+    """
+    Return whether text holds hexadecimal digits only.
+
+    @param text The text.
+
+    @return True if every character is a hexadecimal digit.
+    """
     return all(char in "0123456789abcdefABCDEF" for char in text)
 
 
@@ -442,7 +532,13 @@ class _BlockScalarLine:
 
 
 def _split_block_scalar_lines(source: str) -> list[_BlockScalarLine]:
-    """Split the lines after the header line of a block scalar token."""
+    """
+    Split the lines after the header line of a block scalar token.
+
+    @param source The source text of the token.
+
+    @return The lines.
+    """
     offset = _find_first_line_end(source)
     line_array: list[_BlockScalarLine] = []
 
@@ -490,6 +586,16 @@ def _decode_block_scalar(
     A literal value keeps every content line after its first n spaces, a
     folded value joins neighbouring lines with a space, and both end with
     exactly one line break; see the comments below for the details.
+
+    @param token The block scalar token.
+
+    @param owner_column The 0-based column of the key or dash, or -1 for none.
+
+    @param width The indentation width of the document, or None if it is not fixed yet.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @return The string and the indentation width.
     """
     line_array = _split_block_scalar_lines(token.value)
     first_content = next(
@@ -498,6 +604,15 @@ def _decode_block_scalar(
     )
 
     def fail(message: str, line: _BlockScalarLine | None = None) -> korml.error.ParseError:
+        """
+        Return the error for a problem in the scalar.
+
+        @param message What is wrong.
+
+        @param line The line at fault, or None for the start of the token.
+
+        @return The error, with the code INVALID_BLOCK_SCALAR.
+        """
         position = token.span.start
         if line is not None:
             position = korml.core.advance_position(position, token.value[: line.offset])
@@ -588,6 +703,13 @@ def _decode_block_scalar(
 
 
 def _find_first_line_end(source: str) -> int:
+    """
+    Return the offset after the first line break.
+
+    @param source The text to search.
+
+    @return The offset, or the length of source if it has no line break.
+    """
     index = 0
 
     while index < len(source):
@@ -612,6 +734,15 @@ def _make_expected_scalar_error(
     source_name: str,
     token_array: collections.abc.Sequence[korml.lexer.v1.Token],
 ) -> korml.error.ParseError:
+    """
+    Return the error for tokens that are not one scalar.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @param token_array The tokens that were read.
+
+    @return The error, located at the token that should not be there.
+    """
     semantic_token_array = _without_trivia(token_array)
 
     # Point at the token that should not be there, or at the one that is not
@@ -638,7 +769,19 @@ def _make_parse_error(
     source_name: str,
     at: korml.lexer.v1.Token | None,
 ) -> korml.error.ParseError:
-    """Build a ParseError located at the token at, if there is one."""
+    """
+    Build a ParseError located at the token at, if there is one.
+
+    @param code The error code.
+
+    @param message What is wrong.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @param at The token at fault, or None if there is none.
+
+    @return The error.
+    """
     return korml.error.ParseError(
         message=message,
         source_name=source_name,
@@ -650,6 +793,13 @@ def _make_parse_error(
 def _first_non_trivia(
     token_array: collections.abc.Sequence[korml.lexer.v1.Token],
 ) -> korml.lexer.v1.Token | None:
+    """
+    Return the first token that carries meaning.
+
+    @param token_array The concrete tokens.
+
+    @return The token, or None if there is none.
+    """
     for token in token_array:
         if token.type not in _TRIVIA_TOKEN_TYPE_SET:
             return token
@@ -709,6 +859,13 @@ class _Layouter:
         *,
         source_name: str,
     ) -> None:
+        """
+        Prepare to read the tokens of one document body.
+
+        @param token_array The concrete tokens of the document body.
+
+        @param source_name The name of the source, for diagnostics.
+        """
         self.token_array = token_array
         self.source_name = source_name
         self.event_array: list[_Event] = []
@@ -723,9 +880,25 @@ class _Layouter:
         message: str,
         token: korml.lexer.v1.Token | None,
     ) -> korml.error.ParseError:
+        """
+        Return a ParseError located at a token.
+
+        @param code The error code.
+
+        @param message What is wrong.
+
+        @param token The token at fault, or None if there is none.
+
+        @return The error.
+        """
         return _make_parse_error(code, message=message, source_name=self.source_name, at=token)
 
     def run(self) -> list[_Event]:
+        """
+        Turn the tokens into the significant stream, and decode the block scalars.
+
+        @return The significant stream.
+        """
         at_line_start = True
         open_content_line = False
         flow_depth = 0
@@ -797,6 +970,15 @@ class _Layouter:
         return self.event_array
 
     def open_content_line(self, index: int, token: korml.lexer.v1.Token, column: int) -> None:
+        """
+        Add the layout tokens for the first token of a line.
+
+        @param index The position of the token in the body.
+
+        @param token The token.
+
+        @param column The 0-based column of the token.
+        """
         top = self.stack[-1]
 
         if column > top:
@@ -827,7 +1009,15 @@ class _Layouter:
             )
 
     def open_compact_level(self, index: int, token: korml.lexer.v1.Token, column: int) -> None:
-        """Open the level of a compact entry, as in '- key: value' or '- - a'."""
+        """
+        Open the level of a compact entry, as in '- key: value' or '- - a'.
+
+        @param index The position of the dash in the body.
+
+        @param token The dash.
+
+        @param column The 0-based column of the dash.
+        """
         content_index = index + 1
 
         while (
@@ -861,6 +1051,8 @@ class _Layouter:
         That is the key before a ':' or the dash before the value; None if
         the value is not the value of an entry (the root node, or a place
         the grammar rejects).
+
+        @return The 0-based column, or None.
         """
         if not self.significant_index_array:
             return None
@@ -880,6 +1072,13 @@ class _Layouter:
         return None
 
     def decode_block_scalar(self, index: int, token: korml.lexer.v1.Token) -> None:
+        """
+        Decode a block scalar, which needs the layout for its indentation.
+
+        @param index The position of the token in the body.
+
+        @param token The block scalar token.
+        """
         owner_column = self.owner_column()
 
         # A block scalar that is not the value of an entry is an error the
@@ -902,7 +1101,13 @@ class _Layouter:
 
 
 def _describe_event(event: _Event) -> str:
-    """Describe a token for a message such as "unexpected <description>"."""
+    """
+    Describe a token for a message such as "unexpected <description>".
+
+    @param event The token.
+
+    @return The description.
+    """
     match event.kind:
         case _Layout.NEWLINE:
             return "end of line"
@@ -937,6 +1142,20 @@ class _Parser:
         budget: _ParseBudget | None,
         max_depth: int | None = MAX_NESTING_DEPTH,
     ) -> None:
+        """
+        Run the layout over the tokens of one document body.
+
+        @param token_array The concrete tokens of the document body.
+
+        @param version The language version.
+
+        @param source_name The name of the source, for diagnostics.
+
+        @param budget The work left, shared between the documents of a source.
+
+        @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+            korml.
+        """
         layouter = _Layouter(token_array, source_name=source_name)
         self.event_array = layouter.run()
         self.block_scalar_value_map = layouter.block_scalar_value_map
@@ -950,10 +1169,22 @@ class _Parser:
     # Token access -------------------------------------------------------------------------------
 
     def peek(self, offset: int = 0) -> _Event:
+        """
+        Return a token ahead, without consuming it.
+
+        @param offset How many tokens ahead.
+
+        @return The token, or the last one if that is past the end.
+        """
         index = min(self.position + offset, len(self.event_array) - 1)
         return self.event_array[index]
 
     def advance(self) -> _Event:
+        """
+        Consume a token and spend one unit of the work budget.
+
+        @return The token consumed.
+        """
         event = self.event_array[self.position]
 
         if self.budget is not None and self.budget.remaining is not None:
@@ -969,11 +1200,29 @@ class _Parser:
         return event
 
     def error(self, code: ErrorCode, message: str, event: _Event) -> korml.error.ParseError:
+        """
+        Return a ParseError located at a token.
+
+        @param code The error code.
+
+        @param message What is wrong.
+
+        @param event The token at fault.
+
+        @return The error.
+        """
         return _make_parse_error(
             code, message=message, source_name=self.source_name, at=event.token
         )
 
     def expect(self, kind: _Layout, after: str) -> None:
+        """
+        Consume a layout token, or raise a ParseError if another comes next.
+
+        @param kind The layout token that must come next.
+
+        @param after What it follows, for the message.
+        """
         event = self.peek()
 
         if event.kind is not kind:
@@ -986,7 +1235,11 @@ class _Parser:
         self.advance()
 
     def range_end(self) -> int:
-        """Return the index of the next concrete significant token, or the end of the body."""
+        """
+        Return the index of the next concrete significant token, or the end of the body.
+
+        @return The index.
+        """
         # Only layout tokens can come before the next concrete token, and at
         # most a few of them per line, so this does not slice the stream.
         for index in range(self.position, len(self.event_array)):
@@ -997,13 +1250,26 @@ class _Parser:
         return len(self.token_array)
 
     def cst(self, start: int) -> korml.model.CST[korml.lexer.v1.Token]:
+        """
+        Return the CST from a token up to the next significant token.
+
+        @param start The index of the first token of the value's CST.
+
+        @return The CST.
+        """
         return korml.model.CST(
             version=self.version,
             token_array=self.token_array[start : self.range_end()],
         )
 
     def check_depth(self, depth: int, event: _Event) -> None:
-        """Refuse a collection inside depth others if that breaks max_depth."""
+        """
+        Refuse a collection inside depth others if that breaks max_depth.
+
+        @param depth The number of collections around this one.
+
+        @param event The token that opens the collection.
+        """
         if korml._limits.is_too_deep(depth, self.max_depth):
             raise self.error(
                 ErrorCode.TOO_DEEP,
@@ -1012,6 +1278,11 @@ class _Parser:
             )
 
     def is_mapping_entry_start(self) -> bool:
+        """
+        Return whether a key and its colon come next.
+
+        @return True if a mapping entry starts here.
+        """
         return (
             self.peek().kind in _FLOW_SCALAR_TOKEN_TYPE_SET
             and self.peek(1).kind is korml.lexer.v1.TokenType.COLON
@@ -1020,7 +1291,13 @@ class _Parser:
     # Body ---------------------------------------------------------------------------------------
 
     def parse_body(self, depth: int) -> korml.model.Value[korml.lexer.v1.Token] | None:
-        """Body ::= RootNode, or nothing at all for an empty document."""
+        """
+        Body ::= RootNode, or nothing at all for an empty document.
+
+        @param depth The number of collections around the root.
+
+        @return The root value, or None for an empty document.
+        """
         if self.peek().kind is _Layout.EOF:
             return None
 
@@ -1037,7 +1314,13 @@ class _Parser:
         return root
 
     def parse_root(self, depth: int) -> korml.model.Value[korml.lexer.v1.Token]:
-        """RootNode ::= BlockMapping | BlockSequence | FlowNode NEWLINE | FlowScalar NEWLINE"""
+        """
+        RootNode ::= BlockMapping | BlockSequence | FlowNode NEWLINE | FlowScalar NEWLINE
+
+        @param depth The number of collections around the root.
+
+        @return The root value.
+        """
         event = self.peek()
 
         if event.kind is _Layout.INDENT:
@@ -1062,7 +1345,15 @@ class _Parser:
     # Block collections --------------------------------------------------------------------------
 
     def parse_block_node(self, start: int, depth: int) -> korml.model.Value[korml.lexer.v1.Token]:
-        """BlockNode ::= BlockMapping | BlockSequence"""
+        """
+        BlockNode ::= BlockMapping | BlockSequence
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @return The value.
+        """
         event = self.peek()
 
         if event.kind is korml.lexer.v1.TokenType.DASH_ITEM:
@@ -1081,7 +1372,15 @@ class _Parser:
     def parse_block_mapping(
         self, start: int, depth: int
     ) -> korml.model.Mapping[korml.lexer.v1.Token]:
-        """BlockMapping ::= MappingEntry+ ; MappingEntry ::= Key COLON EntryValue"""
+        """
+        BlockMapping ::= MappingEntry+ ; MappingEntry ::= Key COLON EntryValue
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @return The mapping.
+        """
         self.check_depth(depth, self.peek())
         mapping = korml.model.Mapping[korml.lexer.v1.Token](
             style=korml.model.Style.block,
@@ -1119,7 +1418,17 @@ class _Parser:
     def parse_entry_value(
         self, start: int, depth: int, key_event: _Event
     ) -> korml.model.Value[korml.lexer.v1.Token]:
-        """EntryValue ::= InlineValue NEWLINE | BlockScalar | NEWLINE INDENT BlockNode DEDENT"""
+        """
+        EntryValue ::= InlineValue NEWLINE | BlockScalar | NEWLINE INDENT BlockNode DEDENT
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @param key_event The key of the entry.
+
+        @return The value.
+        """
         event = self.peek()
 
         if event.kind is _Layout.NEWLINE:
@@ -1142,7 +1451,17 @@ class _Parser:
     def parse_indented_block_node(
         self, start: int, depth: int, owner_event: _Event
     ) -> korml.model.Value[korml.lexer.v1.Token]:
-        """The NEWLINE INDENT BlockNode DEDENT part of an entry, after its NEWLINE."""
+        """
+        The NEWLINE INDENT BlockNode DEDENT part of an entry, after its NEWLINE.
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @param owner_event The key or dash of the entry.
+
+        @return The value.
+        """
         event = self.peek()
 
         if event.kind is not _Layout.INDENT:
@@ -1166,6 +1485,12 @@ class _Parser:
         BlockSequence ::= SequenceEntry+
         SequenceEntry ::= DASH_ITEM INDENT CompactValue DEDENT
                         | DASH_ITEM NEWLINE INDENT BlockNode DEDENT
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @return The sequence.
         """
         self.check_depth(depth, self.peek())
         value_array: list[korml.model.Value[korml.lexer.v1.Token]] = []
@@ -1207,7 +1532,15 @@ class _Parser:
     def parse_compact_value(
         self, start: int, depth: int
     ) -> korml.model.Value[korml.lexer.v1.Token]:
-        """CompactValue ::= BlockMapping | BlockSequence | InlineValue NEWLINE | BlockScalar"""
+        """
+        CompactValue ::= BlockMapping | BlockSequence | InlineValue NEWLINE | BlockScalar
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @return The value.
+        """
         event = self.peek()
 
         if event.kind is korml.lexer.v1.TokenType.DASH_ITEM or self.is_mapping_entry_start():
@@ -1221,7 +1554,17 @@ class _Parser:
     def parse_inline_value(
         self, start: int, depth: int, *, after: str
     ) -> korml.model.Value[korml.lexer.v1.Token]:
-        """InlineValue NEWLINE, where InlineValue ::= FlowNode | FlowScalar"""
+        """
+        InlineValue NEWLINE, where InlineValue ::= FlowNode | FlowScalar
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @param after What the value is, for the message.
+
+        @return The value.
+        """
         value = self.parse_flow_value(start, depth)
         self.expect(_Layout.NEWLINE, after)
         return value
@@ -1229,6 +1572,13 @@ class _Parser:
     # Scalars ------------------------------------------------------------------------------------
 
     def parse_block_scalar(self, start: int) -> korml.model.Scalar[korml.lexer.v1.Token]:
+        """
+        Build the value of a block scalar the layout decoded.
+
+        @param start The index of the first token of the value's CST.
+
+        @return The scalar.
+        """
         event = self.advance()
         value = self.block_scalar_value_map.get(event.index)
 
@@ -1242,6 +1592,13 @@ class _Parser:
         return korml.model.Scalar[korml.lexer.v1.Token](value, cst=self.cst(start))
 
     def parse_flow_scalar(self, start: int) -> korml.model.Scalar[korml.lexer.v1.Token]:
+        """
+        Decode a plain or quoted scalar.
+
+        @param start The index of the first token of the value's CST.
+
+        @return The scalar.
+        """
         event = self.advance()
         assert event.token is not None
         value = _decode_flow_scalar(event.token, source_name=self.source_name)
@@ -1254,6 +1611,10 @@ class _Parser:
         A key is at most MAX_KEY_LENGTH characters of source text and holds
         no raw zero-width joiner or non-joiner, which would make two
         different keys look the same; it may hold them as escapes.
+
+        @param event The key token.
+
+        @return The string.
         """
         token = event.token
         assert token is not None
@@ -1283,7 +1644,15 @@ class _Parser:
     # Flow collections ---------------------------------------------------------------------------
 
     def parse_flow_value(self, start: int, depth: int) -> korml.model.Value[korml.lexer.v1.Token]:
-        """FlowValue ::= FlowNode | FlowScalar"""
+        """
+        FlowValue ::= FlowNode | FlowScalar
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @return The value.
+        """
         event = self.peek()
 
         if event.kind is korml.lexer.v1.TokenType.FLOW_SEQUENCE_START:
@@ -1314,7 +1683,15 @@ class _Parser:
     def parse_flow_sequence(
         self, start: int, depth: int
     ) -> korml.model.Sequence[korml.lexer.v1.Token]:
-        """FlowSequence ::= '[' (FlowValue (',' FlowValue)*)? ']'"""
+        """
+        FlowSequence ::= '[' (FlowValue (',' FlowValue)*)? ']'
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @return The sequence.
+        """
         open_event = self.advance()
         self.check_depth(depth, open_event)
         value_array: list[korml.model.Value[korml.lexer.v1.Token]] = []
@@ -1353,6 +1730,12 @@ class _Parser:
         """
         FlowMapping ::= '{' (FlowEntry (',' FlowEntry)*)? '}'
         FlowEntry   ::= Key COLON FlowValue
+
+        @param start The index of the first token of the value's CST.
+
+        @param depth The number of collections around this value.
+
+        @return The mapping.
         """
         open_event = self.advance()
         self.check_depth(depth, open_event)
@@ -1447,6 +1830,16 @@ def _add_unique_item(
     Keys are compared as decoded strings, so a, 'a' and "a" are the same
     key. Keeping the last value silently would let two readers of the same
     file see different values for the same key.
+
+    @param mapping The mapping being built.
+
+    @param key The decoded key.
+
+    @param value The value of the entry.
+
+    @param key_token The key token, for the error.
+
+    @param source_name The name of the source, for diagnostics.
     """
     if key in mapping:
         raise _make_parse_error(
@@ -1473,6 +1866,21 @@ def _parse_body(
 
     The root value keeps every token of the body as its CST, leading and
     trailing trivia included.
+
+    @param token_array The concrete tokens of the document body.
+
+    @param version The language version.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @param depth The number of collections around the root.
+
+    @param budget The work left, shared between the documents of a source.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The root value, or None for an empty body.
     """
     parser = _Parser(
         tuple(token_array),
@@ -1493,7 +1901,24 @@ def _parse_value(
     budget: _ParseBudget | None = None,
     max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> korml.model.Value[korml.lexer.v1.Token]:
-    """Parse the tokens of a document body that must hold a root value."""
+    """
+    Parse the tokens of a document body that must hold a root value.
+
+    @param token_array The concrete tokens of the document body.
+
+    @param version The language version.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @param depth The number of collections around the root.
+
+    @param budget The work left, shared between the documents of a source.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The root value.
+    """
     value = _parse_body(
         token_array,
         version=version,
@@ -1523,7 +1948,24 @@ def _parse_sequence(
     budget: _ParseBudget | None = None,
     max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> korml.model.Sequence[korml.lexer.v1.Token]:
-    """Parse the tokens of a document body whose root must be a sequence."""
+    """
+    Parse the tokens of a document body whose root must be a sequence.
+
+    @param token_array The concrete tokens of the document body.
+
+    @param version The language version.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @param depth The number of collections around the root.
+
+    @param budget The work left, shared between the documents of a source.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The root sequence.
+    """
     value = _parse_value(
         token_array,
         version=version,
@@ -1553,7 +1995,24 @@ def _parse_mapping(
     budget: _ParseBudget | None = None,
     max_depth: int | None = MAX_NESTING_DEPTH,
 ) -> korml.model.Mapping[korml.lexer.v1.Token]:
-    """Parse the tokens of a document body whose root must be a mapping."""
+    """
+    Parse the tokens of a document body whose root must be a mapping.
+
+    @param token_array The concrete tokens of the document body.
+
+    @param version The language version.
+
+    @param source_name The name of the source, for diagnostics.
+
+    @param depth The number of collections around the root.
+
+    @param budget The work left, shared between the documents of a source.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The root mapping.
+    """
     value = _parse_value(
         token_array,
         version=version,

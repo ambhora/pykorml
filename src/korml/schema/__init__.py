@@ -47,7 +47,15 @@ def compile_schema(
     *,
     version: str = "v1",
 ) -> Schema:
-    """Compile a schema builtin using the selected schema-language version."""
+    """
+    Compile a schema builtin using the selected schema-language version.
+
+    @param value The schema document as plain data.
+
+    @param version The schema language version; only 'v1' exists.
+
+    @return The schema.
+    """
     if version == "v1":
         return v1.compile_schema(value)
 
@@ -61,7 +69,20 @@ def validate(
     version: str = "v1",
     max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
 ) -> list[ValidationError]:
-    """Validate a builtin value using the selected schema-language version; see v1.validate."""
+    """
+    Validate a builtin value using the selected schema-language version; see v1.validate.
+
+    @param value The plain data, or None for an empty document.
+
+    @param schema The compiled schema.
+
+    @param version The schema language version; only 'v1' exists.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The validation errors, empty if the value is valid.
+    """
     if version == "v1":
         return v1.validate(value, schema, max_depth=max_depth)
 
@@ -77,7 +98,22 @@ def construct(
     version: str = "v1",
     max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
 ) -> object:
-    """Construct user objects using the selected schema-language version; see v1.construct."""
+    """
+    Construct user objects using the selected schema-language version; see v1.construct.
+
+    @param value The plain data, or None for an empty document.
+
+    @param schema The compiled schema.
+
+    @param constructor_map The constructor of each type name, or None for none.
+
+    @param version The schema language version; only 'v1' exists.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The constructed value.
+    """
     if version == "v1":
         return v1.construct(value, schema, constructor_map, max_depth=max_depth)
 

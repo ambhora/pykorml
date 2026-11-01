@@ -32,6 +32,11 @@ class ErrorCode(str, enum.Enum):
     """Collections nested deeper than max_depth."""
 
     def __str__(self) -> str:
+        """
+        Return the code as text.
+
+        @return The value of the code.
+        """
         return self.value
 
 
@@ -59,6 +64,13 @@ def emit(
     is an EmitError with the code TOO_DEEP. With None there is no korml
     limit, and nesting too deep for Python's recursion limit raises the
     same error.
+
+    @param stream The stream to write, of version v1.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The source, with its directive and document markers.
     """
     if stream.version is not korml.model.Version.v1:
         raise ValueError(f"emitter v1 cannot emit version {stream.version.value!r}")
@@ -75,6 +87,14 @@ def emit(
 
 
 def _too_deep_error(max_depth: int | None) -> korml.error.EmitError:
+    """
+    Return the error for nesting deeper than max_depth.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The error, with the code TOO_DEEP.
+    """
     return korml.error.EmitError(
         message=korml._limits.too_deep_message(max_depth),
         code=str(ErrorCode.TOO_DEEP),
@@ -89,6 +109,13 @@ def _emit_root(value: korml.model.Value[object], *, max_depth: int | None) -> li
     double-quoted. An empty document has no lines. A RecursionError, only
     possible when max_depth is None or larger than Python can recurse,
     becomes an EmitError with the code TOO_DEEP.
+
+    @param value The root value of the document.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The lines, without line breaks.
     """
     if isinstance(value, korml.model.Empty):
         return []
@@ -109,6 +136,20 @@ def _emit_collection(
     depth: int,
     max_depth: int | None,
 ) -> list[str]:
+    """
+    Return the lines of a sequence or mapping at a column.
+
+    @param value The collection to write.
+
+    @param indent The column the entries of this collection start at.
+
+    @param depth The number of collections around this one.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The lines, without line breaks.
+    """
     if isinstance(value, korml.model.Empty):
         raise korml.error.EmitError(
             message="an empty document can only be the root of a document",
@@ -146,6 +187,19 @@ def _emit_entry(
     collection starts on the next line, one level deeper, since a block
     collection cannot start on the line of its key and a compact entry is
     not needed.
+
+    @param head The text of the line so far: the indentation and the key or dash.
+
+    @param value The value of the entry.
+
+    @param indent The column of the key or dash.
+
+    @param depth The number of collections around the value.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The lines, without line breaks.
     """
     if isinstance(value, korml.model.Scalar):
         return _emit_scalar_entry(head, value.value, indent=indent)
@@ -174,6 +228,20 @@ def _emit_sequence(
     depth: int,
     max_depth: int | None,
 ) -> list[str]:
+    """
+    Return the lines of a non-empty sequence, one entry after another.
+
+    @param sequence The sequence to write.
+
+    @param indent The column the entries of this collection start at.
+
+    @param depth The number of collections around this one.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The lines, without line breaks.
+    """
     line_array: list[str] = []
 
     for value in sequence.value_array:
@@ -193,6 +261,20 @@ def _emit_mapping(
     depth: int,
     max_depth: int | None,
 ) -> list[str]:
+    """
+    Return the lines of a non-empty mapping, one entry after another.
+
+    @param mapping The mapping to write.
+
+    @param indent The column the entries of this collection start at.
+
+    @param depth The number of collections around this one.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The lines, without line breaks.
+    """
     line_array: list[str] = []
 
     for key, value in mapping.value_map.items():
@@ -220,7 +302,17 @@ def _emit_mapping(
 
 
 def _emit_scalar_entry(head: str, value: str, *, indent: int) -> list[str]:
-    """Return the lines of an entry whose value is a scalar, after head."""
+    """
+    Return the lines of an entry whose value is a scalar, after head.
+
+    @param head The text of the line so far: the indentation and the key or dash.
+
+    @param value The string of the scalar.
+
+    @param indent The column of the key or dash.
+
+    @return The lines, without line breaks.
+    """
     if not _is_literal_block_safe(value):
         return [head + " " + _format_double_quoted_scalar(value)]
 
@@ -242,6 +334,10 @@ def _is_literal_block_safe(value: str) -> bool:
     without whitespace and holds printable characters or tabs only, so no
     character needs an escape. Every other value is written double-quoted,
     which always reads back exactly.
+
+    @param value The string to write.
+
+    @return True if a literal block scalar can hold it exactly.
     """
     if not value.endswith("\n") or value.endswith("\n\n"):
         return False
@@ -268,7 +364,13 @@ _SHORT_ESCAPE_MAP = {
 
 
 def _escape_code_point(char: str) -> str:
-    """Escape a character as \\uXXXX, or as \\UXXXXXXXX beyond the Basic Multilingual Plane."""
+    """
+    Escape a character as \\uXXXX, or as \\UXXXXXXXX beyond the Basic Multilingual Plane.
+
+    @param char The character to escape.
+
+    @return The escape, in lower-case hexadecimal.
+    """
     code_point = ord(char)
 
     if code_point < 0x10000:
@@ -286,6 +388,10 @@ def _format_double_quoted_scalar(value: str) -> str:
     bidirectional controls, invisible characters and the zero-width joiners),
     so the result is valid in a value and in a key. A lone surrogate cannot
     be written at all: no escape denotes one, and UTF-8 cannot encode it.
+
+    @param value The string to write.
+
+    @return The scalar, quotes included.
     """
     output = ['"']
 
