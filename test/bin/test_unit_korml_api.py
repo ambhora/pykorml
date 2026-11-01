@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # ------------------------------------------------------------------------------
 
+import os
 import pathlib
 
 import pytest
@@ -142,6 +143,17 @@ def test_dump_failed_replace_keeps_old_file_and_cleans_temp(
 
     assert destination.read_text(encoding="utf-8") == "unchanged"
     assert sorted(path.name for path in tmp_path.iterdir()) == ["output.korml"]
+
+
+def test_dump_writes_a_file_with_the_longest_name_the_filesystem_allows(
+    tmp_path: pathlib.Path,
+) -> None:
+    path = tmp_path / ("n" * os.pathconf(tmp_path, "PC_NAME_MAX"))
+
+    korml.dump("a", path)
+
+    assert korml.load(path).to_builtin() == ["a"]
+    assert [entry.name for entry in tmp_path.iterdir()] == [path.name]
 
 
 def test_load_of_a_file_that_is_not_utf8_is_a_korml_error(tmp_path: pathlib.Path) -> None:

@@ -51,7 +51,9 @@ def write_bytes(
 
 def _write_posix(destination: pathlib.Path, data: bytes) -> None:
     parent_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
-    temporary_name = f".{destination.name}.{secrets.token_hex(12)}.tmp"
+    # The name does not repeat the destination's, which may be as long as a
+    # name can be.
+    temporary_name = f".korml.{secrets.token_hex(12)}.tmp"
     try:
         fd = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600, dir_fd=parent_fd)
         try:
@@ -89,9 +91,7 @@ def _write_posix(destination: pathlib.Path, data: bytes) -> None:
 
 def _write_portable(destination: pathlib.Path, data: bytes) -> None:
     # Non-POSIX fallback: secure temporary creation and atomic replacement.
-    fd, temporary = tempfile.mkstemp(
-        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
-    )
+    fd, temporary = tempfile.mkstemp(prefix=".korml.", suffix=".tmp", dir=destination.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
             try:
