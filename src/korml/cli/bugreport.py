@@ -48,44 +48,32 @@ class TextStyler:
         return prefix + text + AnsiCode.RESET.value
 
 
-# The issue tracker when korml runs without installed package metadata.
-_FALLBACK_ISSUES_URL = "https://github.com/seanergys/pykorml/issues"
-
-
-def issues_url() -> str:
+def issues_url() -> str | None:
     """
-    Return the issue tracker named by the project URLs in pyproject.toml.
+    Return the issue tracker named by the installed package metadata.
 
-    That is the Issues URL if there is one, otherwise the issues page of the
-    Source URL, so the bug report and the package metadata never disagree.
-    Without installed metadata, it is github.com/seanergys/pykorml/issues.
+    That is the Project-URL entry labelled Issues, which comes from
+    [project.urls] in pyproject.toml, so the bug report and the package
+    metadata never disagree. Without installed metadata, as when korml runs
+    from a source tree, or without an Issues entry, it is None: the report
+    then says where to look rather than naming a URL that may be wrong.
     """
     try:
         metadata = importlib.metadata.metadata("korml")
     except importlib.metadata.PackageNotFoundError:
-        return _FALLBACK_ISSUES_URL
+        return None
 
-    url_map = {}
     for entry in metadata.get_all("Project-URL") or []:
         label, _, url = entry.partition(",")
-        url_map[label.strip().lower()] = url.strip().rstrip("/")
+        if label.strip().lower() == "issues" and url.strip() != "":
+            return url.strip()
 
-    if "issues" in url_map:
-        return url_map["issues"]
-
-    source = url_map.get("source")
-    if source is None:
-        return _FALLBACK_ISSUES_URL
-
-    if "gitlab" in source:
-        return f"{source}/-/issues"
-
-    return f"{source}/issues"
+    return None
 
 
 @dataclasses.dataclass(frozen=True)
 class BugReportConfig:
-    url: str = dataclasses.field(default_factory=issues_url)
+    url: str | None = dataclasses.field(default_factory=issues_url)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -93,6 +81,16 @@ class InternalFailureReport:
     exc: Exception
     styler: TextStyler
     config: BugReportConfig = dataclasses.field(default_factory=BugReportConfig)
+
+    def _where_to_report(self) -> str:
+        if self.config.url is not None:
+            return f"If you would like to report this, please open an issue at: {self.config.url}"
+
+        return (
+            "If you would like to report this, please open an issue in the korml issue "
+            "tracker, named by the Issues entry of [project.urls] in the pyproject.toml "
+            "of korml and in the metadata of the installed package."
+        )
 
     def render(self) -> str:
         return "\n".join(
@@ -108,10 +106,7 @@ class InternalFailureReport:
                 self.styler.style("KORML encountered an unexpected internal error.", AnsiCode.BOLD),
                 "This usually indicates a bug in KORML rather than an error in your input.",
                 "",
-                self.styler.style(
-                    f"If you would like to report this, please open an issue at: {self.config.url}",
-                    AnsiCode.YELLOW,
-                ),
+                self.styler.style(self._where_to_report(), AnsiCode.YELLOW),
                 "",
                 "A bug report is most helpful when it includes:",
                 "",

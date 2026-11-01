@@ -18,6 +18,7 @@ dependencies = []
 
 [project.urls]
 Source = "https://gitlab.com/ambhora/software/korml"
+Issues = "https://github.com/ambhora/pykorml/issues"
 
 [project.scripts]
 korml = "korml.cli:main"
