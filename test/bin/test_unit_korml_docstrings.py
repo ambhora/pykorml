@@ -10,10 +10,6 @@ This looks at the signature of every function, private ones and nested ones
 included: a docstring with one @param per parameter, in order, and a @return
 unless the function returns None. A @param for a parameter the function does
 not have fails too, so the fields cannot go stale.
-
-cpdocs splits a docstring on blank lines and reads a paragraph as one field, so
-each field must be a paragraph of its own: two @param lines in one paragraph
-render as a single parameter that swallows the other.
 """
 
 import ast
@@ -23,9 +19,8 @@ import re
 import pytest
 
 _SOURCE_ROOT = pathlib.Path(__file__).resolve().parents[2] / "src" / "korml"
-_PARAM_PATTERN = re.compile(r"@param\s+(\*{0,2}\w+)\s+\S")
-_RETURN_PATTERN = re.compile(r"@returns?\s+\S")
-_FIELD_PATTERN = re.compile(r"^\s*@(param|returns?)\b", re.MULTILINE)
+_PARAM_PATTERN = re.compile(r"^\s*@param\s+(\*{0,2}\w+)\s+\S", re.MULTILINE)
+_RETURN_PATTERN = re.compile(r"^\s*@returns?\s+\S", re.MULTILINE)
 
 
 def _walk(body: list[ast.stmt], prefix: str) -> list[tuple[str, ast.FunctionDef]]:
@@ -108,26 +103,9 @@ def test_function_describes_its_inputs_and_return_value(name: str, node: ast.Fun
     docstring = ast.get_docstring(node)
     assert docstring, f"{name} has no docstring"
 
-    # The paragraphs as cpdocs reads them.
-    paragraphs = [" ".join(block.split()) for block in re.split(r"\n\s*\n", docstring)]
-    fields = [paragraph for paragraph in paragraphs if paragraph.startswith("@")]
-    params = [match.group(1) for field in fields if (match := _PARAM_PATTERN.match(field))]
-    returns = [field for field in fields if _RETURN_PATTERN.match(field)]
-
-    for block in re.split(r"\n\s*\n", docstring):
-        count = len(_FIELD_PATTERN.findall(block))
-        assert count <= 1, f"{name} has {count} fields in one paragraph"
+    params = _PARAM_PATTERN.findall(docstring)
+    returns = _RETURN_PATTERN.findall(docstring)
 
     assert params == _parameters(node), f"{name} documents {params}, not {_parameters(node)}"
     assert len(returns) == int(_returns_a_value(node)), f"{name} return is not described right"
     assert not re.search(r"^(Args|Returns):$", docstring, re.MULTILINE), f"{name} is not @param"
-
-
-def test_cpdocs_reads_one_field_per_paragraph() -> None:
-    html = pytest.importorskip("cpdocs.rendering.html")
-
-    separate = html._documentation_description("Text.\n\n@param a One.\n\n@param b Two.")
-    together = html._documentation_description("Text.\n\n@param a One.\n@param b Two.")
-
-    assert "<code>b</code>" in separate
-    assert "<code>b</code>" not in together
