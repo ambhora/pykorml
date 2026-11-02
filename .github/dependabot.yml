@@ -1,0 +1,24 @@
+# ------------------------------------------------------------------------------
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Jayesh Badwaik <j.badwaik@fz-juelich.de>
+# ------------------------------------------------------------------------------
+
+# Dependabot proposes updates of the pinned actions and of uv.lock once a
+# week. The cooldown waits until a release is a week old, so a compromised
+# release that is pulled within days never reaches a pull request.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

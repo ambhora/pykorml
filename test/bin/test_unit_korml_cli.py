@@ -5,7 +5,12 @@
 
 """The korml command line."""
 
+import email.message
+import importlib.metadata
+import io
+import os
 import pathlib
+import subprocess
 import sys
 
 import pytest
@@ -73,7 +78,37 @@ def test_input_that_is_not_utf8_is_a_user_error(
     source.write_bytes(b"name: caf\xe9\n")
 
     assert _run(monkeypatch, "lex", "--input", str(source)) == 1
-    assert "not valid UTF-8 at byte 9" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "not valid UTF-8 at byte 9" in error
+    assert "= code: INVALID_ENCODING" in error
+
+
+def test_input_that_is_a_fifo_is_refused_without_waiting(tmp_path: pathlib.Path) -> None:
+    # In a process of its own, since reading a FIFO would wait for a writer
+    # forever and take the test run with it.
+    fifo = tmp_path / "fifo"
+    os.mkfifo(fifo)
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import korml.cli; raise SystemExit(korml.cli.main())"]
+        + ["lex", "--input", str(fifo)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "= code: NOT_A_REGULAR_FILE" in result.stderr
+
+
+def test_input_that_is_a_directory_is_refused(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run(monkeypatch, "lex", "--input", str(tmp_path)) == 1
+    assert "= code: NOT_A_REGULAR_FILE" in capsys.readouterr().err
 
 
 def test_missing_input_is_a_user_error(
@@ -88,10 +123,44 @@ def test_missing_input_is_a_user_error(
 
 
 def test_bug_report_names_the_issue_tracker_of_the_project_urls() -> None:
-    assert korml.cli.bugreport.issues_url() == "https://gitlab.com/ambhora/software/korml/-/issues"
+    url = "https://github.com/ambhora/pykorml/issues"
+
+    assert korml.cli.bugreport.issues_url() == url
+
+    report = korml.cli.bugreport.render_internal_failure_report(RuntimeError("x"), io.StringIO())
+
+    assert f"please open an issue at: {url}" in report
 
 
-def test_lex_drops_a_byte_order_mark(
+def _metadata_without_package(name: str) -> object:
+    raise importlib.metadata.PackageNotFoundError(name)
+
+
+def test_bug_report_without_package_metadata_names_no_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(importlib.metadata, "metadata", _metadata_without_package)
+
+    assert korml.cli.bugreport.issues_url() is None
+
+    report = korml.cli.bugreport.render_internal_failure_report(RuntimeError("x"), io.StringIO())
+
+    assert "korml issue tracker" in report
+    assert "Issues entry of [project.urls]" in report
+    assert "https://" not in report
+
+
+def test_bug_report_ignores_project_urls_other_than_issues(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    message = email.message.Message()
+    message["Project-URL"] = "Source, https://example.org/korml"
+    monkeypatch.setattr(importlib.metadata, "metadata", lambda name: message)
+
+    assert korml.cli.bugreport.issues_url() is None
+
+
+def test_lex_rejects_a_byte_order_mark(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     source = tmp_path / "a.korml"
@@ -100,8 +169,8 @@ def test_lex_drops_a_byte_order_mark(
 
     status = _run(monkeypatch, "lex", "--input", str(source), "--output", str(output))
 
-    assert status == 0
-    assert "\ufeff" not in output.read_text(encoding="utf-8")
+    assert status != 0
+    assert not output.exists()
 
 
 def test_lex_can_atomically_replace_its_own_input(

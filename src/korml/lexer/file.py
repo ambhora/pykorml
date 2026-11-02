@@ -16,7 +16,18 @@ __all__ = ["detect_version", "lex", "unlex"]
 
 
 def detect_version(input_text: str) -> korml.model.Version:
-    """Detect the KORML source version from stream framing."""
+    """
+    Detect the KORML source version from stream framing.
+
+    The source is v1 if its first line that is not blank (empty, whitespace
+    only, or whitespace and a comment) begins with '%!korml' at column 1;
+    otherwise it is v0. The v1 lexer then requires that line to be a valid
+    directive.
+
+    @param input_text The source text.
+
+    @return Version.v1 or Version.v0.
+    """
     line_start = 0
 
     while line_start < len(input_text):
@@ -31,7 +42,7 @@ def detect_version(input_text: str) -> korml.model.Version:
             line_start = _next_line_start(input_text, line_end)
             continue
 
-        if content.startswith("%!korml"):
+        if line_text.startswith("%!korml"):
             return korml.model.Version.v1
 
         return korml.model.Version.v0
@@ -47,9 +58,21 @@ def lex(
     debug: bool = False,
     max_tokens: int | None = None,
 ) -> File:
-    """Tokenize a complete KORML source string using the detected or requested version."""
-    _reject_byte_order_mark(filename, input_text)
+    """
+    Tokenize a complete KORML source string using the detected or requested version.
 
+    @param filename The name of the source, for diagnostics.
+
+    @param input_text The complete source text.
+
+    @param version The language version, or None to detect it.
+
+    @param debug Whether to trace the lexer on standard error.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @return The tokens of the source.
+    """
     if version is None:
         version = detect_version(input_text)
 
@@ -67,32 +90,26 @@ def lex(
 
 
 def unlex(file: File) -> str:
-    """Convert a tokenized KORML file back to source text."""
+    """
+    Convert a tokenized KORML file back to source text.
+
+    @param file The tokenized file.
+
+    @return The source text.
+    """
     return "".join(token.value for token in file.token_array)
 
 
-def _reject_byte_order_mark(filename: str, input_text: str) -> None:
-    """
-    Raise a LexError if the source starts with a byte-order mark.
-
-    A BOM belongs to the encoding, not to Korml text: korml.loads, korml.load
-    and korml lex drop it before lexing, as YAML does. Text handed to the
-    lexer with one would otherwise make it part of the first key, so the
-    lexer rejects it.
-    """
-    if not input_text.startswith("\ufeff"):
-        return
-
-    position = korml.core.Position(1, 1, 0)
-    raise korml.error.LexError(
-        message="text starts with a byte-order mark; remove it before lexing",
-        code=korml.lexer.v1.ErrorCode.UNEXPECTED_CHARACTER,
-        source_name=filename,
-        span=korml.core.Span(start=position, end=position),
-    )
-
-
 def _next_line_start(input_text: str, line_end: int) -> int:
+    """
+    Return the offset of the start of the line after a line that ends at line_end.
+
+    @param input_text The complete source text.
+
+    @param line_end The offset where the line ends.
+
+    @return The offset after the line break, or line_end at the end of the input.
+    """
     if line_end < len(input_text) and input_text.startswith("\r\n", line_end):
         return line_end + 2
 

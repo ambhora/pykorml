@@ -19,8 +19,9 @@ build:
 
 checks:
   broken-references: fail
-  # 193 public names have no docstring yet; raise this to fail once they do.
-  undocumented: warn
+  # Every public name has documentation, so a new one without it fails the
+  # build.
+  undocumented: fail
 
 versions: [main]
 

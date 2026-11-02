@@ -72,6 +72,10 @@ def validate_config(config: GenerationConfig) -> None:
     if collection_enabled and not leaf_enabled:
         raise ValueError("at least one scalar or block scalar kind must be enabled as a leaf node")
 
+    # Every korml v1 document ends with '...', the last one included.
+    if not config.document_end:
+        raise ValueError("document_end must be true: every korml v1 document ends with '...'")
+
 
 def generate_one(config: GenerationConfig | dict[str, typing.Any]) -> str:
     if isinstance(config, dict):
@@ -100,7 +104,8 @@ def generate_many(
 
 
 def _generate_source(config: GenerationConfig, rng: random.Random) -> str:
-    document_array: list[str] = []
+    # The version directive starts the stream once, before every document.
+    document_array: list[str] = [f"%!korml version {config.version}"]
 
     for document_index in range(config.document_count):
         document_array.append(
@@ -134,13 +139,10 @@ def _generate_document(
     body = _decorate_body(body, config=config, rng=rng)
 
     line_array = [
-        f"%!korml version {config.version}",
         "---",
         body.rstrip(),
+        "...",
     ]
-
-    if config.document_end:
-        line_array.append("...")
 
     return "\n".join(line_array)
 
@@ -384,6 +386,8 @@ def _generate_scalar(
 def _dump_model(model: typing.Any) -> str:
     yaml = ruamel.yaml.YAML()
     yaml.default_flow_style = False
+    # Korml has no single-pair mappings without braces in flow sequences.
+    yaml.brace_single_entry_mapping_in_flow_sequence = True
     yaml.allow_unicode = True
     yaml.width = 4096
     yaml.explicit_end = False
@@ -398,7 +402,74 @@ def _dump_model(model: typing.Any) -> str:
         line_array.pop()
         body = "\n".join(line_array) + "\n"
 
-    return body
+    return _indent_zero_indented_sequences(body)
+
+
+def _key_column(line: str) -> int | None:
+    """
+    Return the column of the key of a line that is a key with a block value.
+
+    That is a line like 'key:' or '- - key:', whose value starts on the next
+    line; None for any other line.
+    """
+    column = len(line) - len(line.lstrip(" "))
+
+    while line.startswith("- ", column):
+        column += 2
+
+    rest = line[column:]
+
+    if rest.endswith(":") and rest[:1] not in ("", "-", "#"):
+        return column
+
+    return None
+
+
+def _is_sequence_entry(stripped_line: str) -> bool:
+    return stripped_line == "-" or stripped_line.startswith("- ")
+
+
+def _indent_zero_indented_sequences(body: str) -> str:
+    """
+    Indent every sequence that ruamel.yaml writes at the column of its key.
+
+    ruamel.yaml writes 'key:' / '- a' with the dash at the column of the
+    key, which korml does not allow. Its other choices suit korml: two
+    spaces per mapping level, and compact '- - a' and '- key: v' entries
+    whose content starts two columns after the dash. Shifting each such
+    sequence, with everything nested in it, two columns to the right gives
+    'key:' / '  - a' and keeps every other relative indentation.
+    """
+    output_line_array: list[str] = []
+    open_column_array: list[int] = []
+    previous_key_column: int | None = None
+
+    for line in body.splitlines():
+        stripped = line.strip()
+
+        if stripped == "":
+            output_line_array.append(line)
+            continue
+
+        column = len(line) - len(line.lstrip(" "))
+
+        while open_column_array and (
+            column < open_column_array[-1]
+            or (column == open_column_array[-1] and not _is_sequence_entry(stripped))
+        ):
+            open_column_array.pop()
+
+        if (
+            _is_sequence_entry(stripped)
+            and previous_key_column is not None
+            and column == previous_key_column
+        ):
+            open_column_array.append(column)
+
+        output_line_array.append(" " * (2 * len(open_column_array)) + line)
+        previous_key_column = _key_column(line)
+
+    return "\n".join(output_line_array) + "\n"
 
 
 def _decorate_body(

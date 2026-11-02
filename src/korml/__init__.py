@@ -10,6 +10,7 @@ from korml.error import KormlError, LexError, ParseError
 from korml.model import (
     CST,
     ConcreteToken,
+    Empty,
     GenericToken,
     Mapping,
     Scalar,
@@ -33,6 +34,7 @@ __all__ = [
     "Scalar",
     "Sequence",
     "Mapping",
+    "Empty",
     "Stream",
     "KormlError",
     "LexError",

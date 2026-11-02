@@ -14,8 +14,10 @@ published version. The names most programs need are also exported by the
 | Read Korml text or a file | @apidocs::korml.api.loads, @apidocs::korml.api.load |
 | Write Korml text or a file | @apidocs::korml.api.dumps, @apidocs::korml.api.dump |
 | Change values and keep the layout | @apidocs::korml.api.edit |
-| Work with the document model | @apidocs::korml.model.Stream, @apidocs::korml.model.Mapping, @apidocs::korml.model.Sequence, @apidocs::korml.model.Scalar |
+| Work with the document model | @apidocs::korml.model.Stream, @apidocs::korml.model.Mapping, @apidocs::korml.model.Sequence, @apidocs::korml.model.Scalar, @apidocs::korml.model.Empty |
 | Catch failures | @apidocs::korml.error.KormlError and its subclasses |
+| Check values against a schema | @apidocs::korml.schema.compile_schema, @apidocs::korml.schema.validate, @apidocs::korml.schema.construct |
+| Work with tokens | @apidocs::korml.lexer.file.lex, @apidocs::korml.lexer.file.unlex, @apidocs::korml.lexer.v1.Token, @apidocs::korml.core.Span |
 
 ## Versions
 

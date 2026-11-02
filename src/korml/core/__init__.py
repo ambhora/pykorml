@@ -62,12 +62,17 @@ class Position:
     """
 
     line: int
+    """The line, from 1."""
     column: int
+    """The column, from 1, in code points."""
     offset: int
+    """The offset from the start of the input, from 0, in code points."""
 
     def to_dict(self) -> dict:
         """
         Convert the position to a JSON-serializable dictionary.
+
+        @return A dictionary with the line, column and offset.
         """
         return {
             "line": self.line,
@@ -83,7 +88,9 @@ class Span:
     """
 
     start: Position
+    """The position of the first character."""
     end: Position
+    """The position after the last character."""
 
     @classmethod
     def empty(cls) -> "Span":
@@ -95,6 +102,8 @@ class Span:
         - line is 1-based
         - column is 1-based
         - offset is 0-based
+
+        @return The empty span at line 1, column 1.
         """
         position = Position(
             line=1,
@@ -110,6 +119,8 @@ class Span:
     def to_dict(self) -> dict:
         """
         Convert the span to a JSON-serializable dictionary.
+
+        @return A dictionary with the start and end positions.
         """
         return {
             "start": self.start.to_dict(),
@@ -119,6 +130,8 @@ class Span:
     def length(self) -> int:
         """
         Return the number of characters covered by the span.
+
+        @return The number of characters.
         """
         return self.end.offset - self.start.offset
 
@@ -130,23 +143,10 @@ def current_line(*, stacklevel: int = 1) -> dict:
     This helper is mainly useful for debugging, tracing, and reporting internal
     locations in korml itself.
 
-    Args:
-        stacklevel:
-            Number of frames to walk upwards from this function.
+    @param stacklevel The number of frames to walk upwards from this function: 1 for the immediate
+        caller of current_line, 2 for its caller, and so on.
 
-            - 1 means the immediate caller of current_line().
-            - 2 means the caller of the caller.
-            - Higher values are useful when current_line() is wrapped by another
-              helper.
-
-    Returns:
-        A dictionary of the form:
-
-            {
-                "file": "...",
-                "line": 123,
-                "function": "function_name",
-            }
+    @return A dictionary with the file, the line and the name of the function.
     """
     f = sys._getframe(stacklevel)
     return {
@@ -157,6 +157,17 @@ def current_line(*, stacklevel: int = 1) -> dict:
 
 
 def make_position(*, line: int, column: int, offset: int) -> Position:
+    """
+    Return the position with these coordinates.
+
+    @param line The line, from 1.
+
+    @param column The column, from 1, in code points.
+
+    @param offset The offset from the start of the input, from 0, in code points.
+
+    @return The position.
+    """
     return Position(line=line, column=column, offset=offset)
 
 
@@ -169,6 +180,23 @@ def make_span(
     end_column: int,
     end_offset: int,
 ) -> Span:
+    """
+    Return the span between two positions given by their coordinates.
+
+    @param start_line The line of the start.
+
+    @param start_column The column of the start.
+
+    @param start_offset The offset of the start.
+
+    @param end_line The line of the end.
+
+    @param end_column The column of the end.
+
+    @param end_offset The offset of the end.
+
+    @return The span.
+    """
     return Span(
         start=make_position(line=start_line, column=start_column, offset=start_offset),
         end=make_position(line=end_line, column=end_column, offset=end_offset),
@@ -176,6 +204,15 @@ def make_span(
 
 
 def advance_position(position: Position, value: str) -> Position:
+    """
+    Return the position after value, which starts at position.
+
+    @param position The position where value starts.
+
+    @param value The source text to move over.
+
+    @return The position after the last character of value.
+    """
     line = position.line
     column = position.column
     offset = position.offset

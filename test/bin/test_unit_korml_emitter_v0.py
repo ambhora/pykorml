@@ -55,7 +55,7 @@ def test_unprintable_characters_are_escaped() -> None:
 
     text = korml.dumps(value, version=korml.Version.v0)
 
-    assert text == '"a": "\\x1b\\x85\\u2028\\ufeff\\0x"\n'
+    assert text == '"a": "\\u001b\\u0085\\u2028\\ufeff\\u0000x"\n'
     assert korml.loads(text).to_builtin() == [value]
 
 

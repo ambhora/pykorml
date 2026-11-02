@@ -1,20 +1,40 @@
 %!korml version 1.0
 ---
 entity_0_0:
-  key_0_0: 'single value 0'
-  key_0_1: [value_1000, ["literal line one 1001000\nliteral line two 1001000\n"]]
-  key_0_2: |
-    literal line one 2
-    literal line two 2
-# lexer should preserve this
-entity_0_1: ["literal line one 1000\nliteral line two 1000\n", {key_1001_0: [value_1001000000, 'single value 1001000001', 'single value 1001000002'], key_1001_1: ["double value 1001001000"]}, ["literal line one 1002000\nliteral line two 1002000\n", ["literal line one 1002001000\nliteral line two 1002001000\n", "double value 1002001001"], {key_1002002_0: "double value 1002002000", key_1002002_1: value_1002002001}]]
-entity_0_2: "double value 2"
-entity_0_3: >
-  folded line one 3
+  - {key_0_0: "literal line one 0\nliteral line two 0\n", key_0_1: {key_1_0: 'single value 1000', key_1_1: value_1001}, key_0_2: "double value 2"}  # generated comment
+  - - 'single value 1000'
+  - value_2
 
-  folded line two 3
+entity_0_1: >
+  folded line one 1
+
+  folded line two 1
+# fuzz comment
+entity_0_2: >
+  folded line one 2
+
+  folded line two 2
+
+# generated comment
+entity_0_3: {key_3_0: 'single value 3000', key_3_1: {key_3001_0: "double value 3001000", key_3001_1: "double value 3001001", key_3001_2: "double value 3001002"}, key_3_2: [[value_3002000000, 'single value 3002000001']]}
 entity_0_4:
-- |
-  literal line one 4000
-  literal line two 4000
+  # roundtrip comment
+  key_4_0: value_4000
+  key_4_1:
+    - key_4001000_0: "double value 4001000000"
+      key_4001000_1: |
+        literal line one 4001000001
+        literal line two 4001000001
+    - |
+      literal line one 4001001
+      literal line two 4001001
+    - ["folded line one 4001002000\nfolded line two 4001002000\n", value_4001002001]
+
+# lexer should preserve this
+entity_0_5: value_5
+entity_0_6: [{key_6000_0: ["folded line one 6000000000\nfolded line two 6000000000\n", "literal line one 6000000001\nliteral line two 6000000001\n"], key_6000_1: ["literal line one 6000001000\nliteral line two 6000001000\n"], key_6000_2: "literal line one 6000002\nliteral line two 6000002\n"}]
+
+entity_0_7: |
+  literal line one 7
+  literal line two 7
 ...

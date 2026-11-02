@@ -4,12 +4,10 @@
 
 """Classic in-memory lexer implementation for KORML v0.
 
-KORML v0 is the YAML-compatible, single-document source form. It reuses the
-v1 document-body tokenization rules, but starts directly in value mode and
-rejects stream-level constructs such as version directives and document markers.
+KORML v0 is the single-document source form. It reuses the v1 document-body
+tokenization rules, but starts directly in value mode and rejects stream-level
+constructs such as version directives and document markers.
 """
-
-import re
 
 import korml._limits
 import korml.core
@@ -20,8 +18,6 @@ from korml.lexer import v0 as lexer_v0
 
 __all__ = ["lex", "unlex"]
 
-_VERSION_DIRECTIVE_PATTERN = re.compile(r"%!korml\s+version\s+\d+\.\d+(?=\s*(#|$))")
-
 
 def lex(
     filename: str,
@@ -30,7 +26,21 @@ def lex(
     *,
     max_tokens: int | None = None,
 ) -> lexer_v0.File:
-    """Tokenize a complete KORML v0 source string."""
+    """
+    Tokenize a complete KORML v0 source string.
+
+    @param filename The name of the source, for diagnostics.
+
+    @param input_text The complete source text.
+
+    @param debug Whether to trace the lexer on standard error.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @return The tokens of the source.
+    """
+    v1_file.check_source_text(str(filename), input_text)
+
     lexer_state = v1_file.LexerState(
         mode=v1_file.LexerMode.VALUE_START,
         position=korml.core.Position(1, 1, 0),
@@ -103,7 +113,13 @@ def lex(
 
 
 def unlex(file: lexer_v0.File) -> str:
-    """Convert a tokenized KORML v0 file back to source text."""
+    """
+    Convert a tokenized KORML v0 file back to source text.
+
+    @param file The tokenized file.
+
+    @return The source text.
+    """
     return "".join(token.value for token in file.token_array)
 
 
@@ -111,6 +127,13 @@ def _reject_leading_version_directive(
     input_text: str,
     lexer_state: v1_file.LexerState,
 ) -> None:
+    """
+    Raise a LexError if the first line with content is a version directive.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+    """
     line_start = 0
 
     while line_start < len(input_text):
@@ -125,14 +148,18 @@ def _reject_leading_version_directive(
             line_start = _next_line_start(input_text, line_end)
             continue
 
-        if _VERSION_DIRECTIVE_PATTERN.match(content):
-            position = _position_at_offset(input_text, line_start + (len(line_text) - len(content)))
+        # A source whose first content line begins with '%!korml' is v1, so
+        # it is not read as v0 text. An indented directive is v0 by version
+        # detection, and an error in v0 either way (the root node starts at
+        # column 0); this names the cause.
+        if content.startswith("%!korml"):
+            position = _position_at_offset(input_text, line_start + len(line_text) - len(content))
             raise korml.error.LexError(
                 message="version directive is not allowed in korml v0",
                 code=lexer_v0.ErrorCode.UNEXPECTED_CHARACTER,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(position),
-                source_line=content,
+                source_line=line_text,
             )
 
         return
@@ -143,6 +170,15 @@ def _reject_stream_token(
     input_text: str,
     lexer_state: v1_file.LexerState,
 ) -> None:
+    """
+    Raise a LexError if token is a directive or a document marker.
+
+    @param token The token just read.
+
+    @param input_text The complete source text.
+
+    @param lexer_state The lexer state at the current position.
+    """
     if token.type not in {
         lexer_v0.TokenType.VERSION_DIRECTIVE,
         lexer_v0.TokenType.DOC_START,
@@ -160,6 +196,15 @@ def _reject_stream_token(
 
 
 def _next_line_start(input_text: str, line_end: int) -> int:
+    """
+    Return the offset of the start of the line after a line that ends at line_end.
+
+    @param input_text The complete source text.
+
+    @param line_end The offset where the line ends.
+
+    @return The offset after the line break, or line_end at the end of the input.
+    """
     if line_end < len(input_text) and input_text.startswith("\r\n", line_end):
         return line_end + 2
 
@@ -170,8 +215,24 @@ def _next_line_start(input_text: str, line_end: int) -> int:
 
 
 def _position_at_offset(input_text: str, offset: int) -> korml.core.Position:
+    """
+    Return the source position of an offset.
+
+    @param input_text The complete source text.
+
+    @param offset The offset into input_text, in code points.
+
+    @return The position.
+    """
     return korml.core.advance_position(korml.core.Position(1, 1, 0), input_text[:offset])
 
 
 def _make_error_span(position: korml.core.Position) -> korml.core.Span:
+    """
+    Return the empty span at position.
+
+    @param position The position of the error.
+
+    @return The span.
+    """
     return korml.core.Span(start=position, end=position)

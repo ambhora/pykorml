@@ -126,5 +126,37 @@
     },
     "type": "LITERAL_BLOCK_SCALAR",
     "value": "|\r\n\r\n  line\r\n"
+  },
+  {
+    "span": {
+      "end": {
+        "column": 4,
+        "line": 6,
+        "offset": 47
+      },
+      "start": {
+        "column": 1,
+        "line": 6,
+        "offset": 44
+      }
+    },
+    "type": "DOC_END",
+    "value": "..."
+  },
+  {
+    "span": {
+      "end": {
+        "column": 1,
+        "line": 7,
+        "offset": 49
+      },
+      "start": {
+        "column": 4,
+        "line": 6,
+        "offset": 47
+      }
+    },
+    "type": "NEWLINE",
+    "value": "\r\n"
   }
 ]

@@ -14,6 +14,7 @@ import korml.parser.v1 as parser_v1
 from korml.lexer import v0 as lexer_v0
 
 ErrorCode = parser_v1.ErrorCode
+"""The codes of the errors the parser reports, shared with v1."""
 
 __all__ = ["ErrorCode", "parse"]
 
@@ -23,29 +24,43 @@ def parse(
     *,
     max_tokens: int | None = korml._limits.MAX_TOKENS,
     max_work: int | None = korml._limits.MAX_PARSE_WORK,
+    max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
 ) -> korml.model.Stream[lexer_v0.Token]:
-    """Parse a tokenized KORML v0 file into a one-document stream."""
+    """
+    Parse a tokenized KORML v0 file into a one-document stream.
+
+    An empty or blank-only source is one empty document, an Empty.
+    max_depth limits the nesting of collections as for the v1 parser.
+
+    @param file The tokenized file, of version v0.
+
+    @param max_tokens The largest number of tokens accepted, or None for no limit.
+
+    @param max_work The largest amount of parser work accepted, or None for no limit.
+
+    @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
+        korml.
+
+    @return The stream of documents.
+    """
     if file.version is not korml.model.Version.v0:
         raise ValueError(f"parser v0 cannot parse version {file.version.value!r}")
 
+    korml._limits.check_max_depth(max_depth)
     parser_v1._check_tokens(file, max_tokens)
-    parser_v1._check_flow_depth(file)
+    parser_v1._check_flow_depth(file, max_depth)
     budget = parser_v1._ParseBudget(remaining=max_work)
-    document_array: list[korml.model.Value[lexer_v0.Token]] = []
 
-    if parser_v1._first_non_trivia(file.token_array) is not None:
-        document_array.append(
-            parser_v1._parse_value(
-                file.token_array,
-                version=file.version,
-                source_name=file.filename,
-                depth=0,
-                budget=budget,
-            )
-        )
+    document = parser_v1._parse_document(
+        file.token_array,
+        version=file.version,
+        source_name=file.filename,
+        budget=budget,
+        max_depth=max_depth,
+    )
 
     return korml.model.Stream[lexer_v0.Token](
-        document_array=document_array,
+        document_array=[document],
         filename=file.filename,
         cst=korml.model.CST(
             version=file.version,

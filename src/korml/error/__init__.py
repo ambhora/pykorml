@@ -27,6 +27,8 @@ The intended hierarchy is:
 
     KormlError
     ├── BugError
+    ├── EmitError
+    ├── UnsafeOutputError
     └── CompilerError
         ├── LexError
         │   └── IndentationError
@@ -46,6 +48,7 @@ __all__ = [
     "IndentationError",
     "ParseError",
     "UnsafeOutputError",
+    "EmitError",
 ]
 
 
@@ -58,6 +61,10 @@ def escape_controls(text: str) -> str:
     where they include text from the source or a schema, it is escaped where
     it is interpolated, so a message keeps its intended line breaks.
     structured() returns every field unmodified.
+
+    @param text Text that comes from outside korml.
+
+    @return The text, with each unprintable character as a visible escape.
     """
     return "".join(char if char.isprintable() else ascii(char)[1:-1] for char in text)
 
@@ -84,14 +91,11 @@ class KormlError(Exception):
         """
         Initialize a generic korml error.
 
-        Args:
-            message:
-                Human-readable explanation of the error.
+        @param message Human-readable explanation of the error.
 
-            code:
-                Optional machine-readable error code. This is useful for tests,
-                structured diagnostics, and downstream tools that should not
-                depend on the exact wording of the message.
+        @param code Optional machine-readable error code. This is useful for tests, structured
+            diagnostics, and downstream tools that should not depend on the exact wording of the
+            message.
         """
         self._message = message
         self._code = code
@@ -100,12 +104,16 @@ class KormlError(Exception):
     def message(self) -> str:
         """
         Return the human-readable error message.
+
+        @return The message.
         """
         return self._message
 
     def code(self) -> str | None:
         """
         Return the machine-readable error code, if one was provided.
+
+        @return The code, or None if the error has none.
         """
         return self._code
 
@@ -116,6 +124,8 @@ class KormlError(Exception):
         The returned dictionary is intended for tests, diagnostics, language
         servers, editor integrations, and other tooling that should consume
         errors without parsing their formatted string representation.
+
+        @return A JSON-compatible dictionary of the fields of the error.
         """
         return {
             "type": self.__class__.__name__,
@@ -126,6 +136,8 @@ class KormlError(Exception):
     def __str__(self) -> str:
         """
         Return describe(quote_source=True).
+
+        @return The description.
         """
         return self.describe(quote_source=True)
 
@@ -136,6 +148,10 @@ class KormlError(Exception):
         With quote_source False, the description gives positions but no text
         of the source, for programs that must not print the content of what
         they read, such as configuration files holding secrets.
+
+        @param quote_source Whether the description may include text of the source.
+
+        @return The description.
         """
         message = self._message
         if self._code is None:
@@ -148,6 +164,7 @@ class KormlError(Exception):
 # ``korml.KormlError``; keeping ``korml.error.BaseError`` avoids breaking
 # callers that already used the namespaced support module directly.
 BaseError = KormlError
+"""The former name of KormlError, kept for callers of this module."""
 
 
 class BugError(KormlError):
@@ -173,6 +190,21 @@ class BugError(KormlError):
         span: korml.core.Span | None = None,
         source_line: str | None = None,
     ):
+        """
+        Initialize the error for a bug at location, with what is known of the input.
+
+        @param message What went wrong.
+
+        @param location Where in korml it went wrong.
+
+        @param details More about the failure, if there is more.
+
+        @param source_name The name of the input, if the bug concerns one.
+
+        @param span Where in the input, if that is known.
+
+        @param source_line The line of the input, if that is known.
+        """
         # The summary is not stored as self.message, which would hide the
         # message() method every korml error has.
         self.summary = message
@@ -197,6 +229,10 @@ class BugError(KormlError):
     def describe(self, *, quote_source: bool) -> str:
         """
         Return the bug description, with the source line if quote_source.
+
+        @param quote_source Whether the description may include text of the source.
+
+        @return The description.
         """
         text = super().describe(quote_source=quote_source)
 
@@ -204,6 +240,27 @@ class BugError(KormlError):
             text += f"\n\nSource line:\n{escape_controls(self.source_line)}"
 
         return text
+
+
+class EmitError(KormlError, ValueError):
+    """
+    Error raised when a value cannot be written as conforming Korml source.
+
+    Examples are a string holding a lone surrogate, which no Korml source can
+    contain, a key longer than a key may be, and values nested too deeply or
+    containing themselves. It is a ValueError too, since the problem is the
+    value handed to the emitter.
+    """
+
+    def __init__(self, *, message: str, code: str):
+        """
+        Initialize the error with a message and a machine-readable code.
+
+        @param message Human-readable explanation of the error.
+
+        @param code Machine-readable error code.
+        """
+        super().__init__(message=message, code=code)
 
 
 class UnsafeOutputError(KormlError):
@@ -216,12 +273,24 @@ class UnsafeOutputError(KormlError):
     """
 
     def __init__(self, *, message: str, path: str):
-        """Initialize the error for the output at path."""
+        """
+        Initialize the error for the output at path.
+
+        @param message Human-readable explanation of the error.
+
+        @param path The output path that was refused.
+        """
         self._path = path
         super().__init__(message=message, code="UNSAFE_OUTPUT")
 
     def describe(self, *, quote_source: bool) -> str:
-        """Return the message, with the output path escaped."""
+        """
+        Return the message, with the output path escaped.
+
+        @param quote_source Unused; an output path is not source text.
+
+        @return The description.
+        """
         return f"{self.__class__.__name__}: {self._message}: {escape_controls(self._path)}"
 
 
@@ -248,17 +317,13 @@ class CompilerError(KormlError):
         """
         Initialize an error associated with an input source.
 
-        Args:
-            message:
-                Human-readable explanation of the error.
+        @param message Human-readable explanation of the error.
 
-            source_name:
-                Human-readable name of the input source. For files this is
-                usually a path. For streams it may be a logical name such as
-                "<stdin>", "<memory>", or another caller-provided label.
+        @param source_name Human-readable name of the input source. For files this is usually a
+            path. For streams it may be a logical name such as "<stdin>", "<memory>", or another
+            caller-provided label.
 
-            code:
-                Optional machine-readable error code.
+        @param code Optional machine-readable error code.
         """
         self._source_name = source_name
         super().__init__(message=message, code=code)
@@ -266,6 +331,8 @@ class CompilerError(KormlError):
     def source_name(self) -> str:
         """
         Return the human-readable name of the input source.
+
+        @return The name of the source.
         """
         return self._source_name
 
@@ -275,6 +342,8 @@ class CompilerError(KormlError):
 
         The returned dictionary extends KormlError.structured() with the source
         name of the input being compiled.
+
+        @return A JSON-compatible dictionary of the fields of the error.
         """
         data = super().structured()
         data["source_name"] = self._source_name
@@ -283,6 +352,10 @@ class CompilerError(KormlError):
     def describe(self, *, quote_source: bool) -> str:
         """
         Return a human-readable compiler diagnostic.
+
+        @param quote_source Unused; this error quotes no source.
+
+        @return The description.
         """
         lines = [
             f"{self.__class__.__name__}: {self._message}",
@@ -318,6 +391,16 @@ class LexError(CompilerError):
     ):
         """
         Initialize a lexer error over a concrete source span.
+
+        @param message Human-readable explanation of the error.
+
+        @param source_name Human-readable name of the input source.
+
+        @param span Where the problem is.
+
+        @param source_line The full source line, if available.
+
+        @param code Optional machine-readable error code.
         """
         self._span = span
         self._source_line = source_line
@@ -330,18 +413,24 @@ class LexError(CompilerError):
     def span(self) -> korml.core.Span:
         """
         Return the source span where the lexer error occurred.
+
+        @return The span.
         """
         return self._span
 
     def source_line(self) -> str | None:
         """
         Return the full source line containing the error, if available.
+
+        @return The line, or None if it is not available.
         """
         return self._source_line
 
     def structured(self) -> dict[str, typing.Any]:
         """
         Return a structured representation of the lexer error.
+
+        @return A JSON-compatible dictionary of the fields of the error.
         """
         data = super().structured()
         data["span"] = self._span.to_dict()
@@ -351,6 +440,10 @@ class LexError(CompilerError):
     def describe(self, *, quote_source: bool) -> str:
         """
         Return a human-readable lexer diagnostic.
+
+        @param quote_source Whether the description may include text of the source.
+
+        @return The description.
         """
         line = self._span.start.line
         column = self._span.start.column
@@ -415,6 +508,14 @@ class ParseError(CompilerError):
     ):
         """
         Initialize a parser error, located at span if it is known.
+
+        @param message Human-readable explanation of the error.
+
+        @param source_name Human-readable name of the input source.
+
+        @param span The span of the token at fault, or None if there is none.
+
+        @param code Optional machine-readable error code.
         """
         self._span = span
         super().__init__(
@@ -426,12 +527,16 @@ class ParseError(CompilerError):
     def span(self) -> korml.core.Span | None:
         """
         Return the source span of the token at fault, if known.
+
+        @return The span, or None if the input ended where a value was expected.
         """
         return self._span
 
     def structured(self) -> dict[str, typing.Any]:
         """
         Return a structured representation of the parser error.
+
+        @return A JSON-compatible dictionary of the fields of the error.
         """
         data = super().structured()
         data["span"] = None if self._span is None else self._span.to_dict()
@@ -440,6 +545,10 @@ class ParseError(CompilerError):
     def describe(self, *, quote_source: bool) -> str:
         """
         Return a human-readable parser diagnostic.
+
+        @param quote_source Unused; this error quotes no source.
+
+        @return The description.
         """
         location = self._source_name
 

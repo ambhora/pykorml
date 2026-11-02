@@ -8,7 +8,9 @@
 
 korml is the Python implementation of [Korml](https://ambhora.github.io/korml/),
 a small, indentation-based markup language for configuration-like documents.
-Its v0 form is the JSON-shaped, single-document subset of YAML.
+Its v0 form is a JSON-shaped, single-document strict subset of YAML, except
+that a plain scalar may start with `&`, `*`, `!`, `%`, `@` or a backtick,
+which YAML reads differently.
 
 ```python
 import korml

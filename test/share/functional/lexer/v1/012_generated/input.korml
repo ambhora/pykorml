@@ -1,4 +1,5 @@
 %!korml version 1.0
 ---
-key: > header text
+key: > # header comment
   line
+...

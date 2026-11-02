@@ -135,7 +135,6 @@ def _add_generation_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--max-mapping-size", type=int, default=3)
     parser.add_argument("--max-sequence-size", type=int, default=3)
 
-    parser.add_argument("--no-document-end", action="store_true")
     parser.add_argument("--no-comments", action="store_true")
     parser.add_argument("--no-inline-comments", action="store_true")
     parser.add_argument("--no-blank-lines", action="store_true")
@@ -166,7 +165,6 @@ def _config_from_args(args: argparse.Namespace) -> yamlgen.GenerationConfig:
         nested_level_count=args.nested_level_count,
         max_mapping_size=args.max_mapping_size,
         max_sequence_size=args.max_sequence_size,
-        document_end=not args.no_document_end,
         comments=not args.no_comments,
         inline_comments=not args.no_inline_comments,
         blank_lines=not args.no_blank_lines,

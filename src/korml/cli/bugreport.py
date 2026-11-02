@@ -9,36 +9,70 @@ import importlib.metadata
 import traceback
 import typing
 
+import korml.error
+
 
 class AnsiCode(enum.Enum):
+    """The terminal escape sequences the report uses."""
+
     RESET = "\033[0m"
+    """End every style."""
     BOLD = "\033[1m"
+    """Bold text."""
     RED = "\033[31m"
+    """Red text."""
     YELLOW = "\033[33m"
+    """Yellow text."""
     CYAN = "\033[36m"
+    """Cyan text."""
 
 
 class DiagnosticExitCode(enum.IntEnum):
+    """The exit statuses of the command line beyond success and user error."""
+
     # sysexits.h: an internal software error. argparse uses 2 for invalid
     # usage, so an internal error needs another status.
     INTERNAL_ERROR = 70
+    """The status of an internal failure, a bug in korml."""
 
 
 @dataclasses.dataclass(frozen=True)
 class ColorPolicy:
+    """Whether the report may use terminal escape sequences."""
+
     enabled: bool
+    """Whether styles are applied."""
 
     @classmethod
     def from_stream(cls, stream: typing.Any) -> "ColorPolicy":
+        """
+        Return the policy for stream: colour only on a terminal.
+
+        @param stream The stream the report goes to.
+
+        @return A policy that enables colour if stream is a terminal.
+        """
         enabled = hasattr(stream, "isatty") and stream.isatty()
         return cls(enabled=enabled)
 
 
 @dataclasses.dataclass(frozen=True)
 class TextStyler:
+    """Applies terminal styles to text, as a color policy allows."""
+
     color_policy: ColorPolicy
+    """The policy that decides whether styles are applied."""
 
     def style(self, text: str, *styles: AnsiCode) -> str:
+        """
+        Return text with styles applied, or unchanged if colour is off.
+
+        @param text The text to style.
+
+        @param styles The styles to apply.
+
+        @return The text, between escape sequences if colour is on.
+        """
         if not self.color_policy.enabled:
             return text
 
@@ -46,53 +80,71 @@ class TextStyler:
         return prefix + text + AnsiCode.RESET.value
 
 
-# The issue tracker when korml runs without installed package metadata.
-_FALLBACK_ISSUES_URL = "https://github.com/seanergys/pykorml/issues"
-
-
-def issues_url() -> str:
+def issues_url() -> str | None:
     """
-    Return the issue tracker named by the project URLs in pyproject.toml.
+    Return the issue tracker named by the installed package metadata.
 
-    That is the Issues URL if there is one, otherwise the issues page of the
-    Source URL, so the bug report and the package metadata never disagree.
-    Without installed metadata, it is github.com/seanergys/pykorml/issues.
+    That is the Project-URL entry labelled Issues, which comes from
+    [project.urls] in pyproject.toml, so the bug report and the package
+    metadata never disagree. Without installed metadata, as when korml runs
+    from a source tree, or without an Issues entry, it is None: the report
+    then says where to look rather than naming a URL that may be wrong.
+
+    @return The URL, or None if the metadata names none.
     """
     try:
         metadata = importlib.metadata.metadata("korml")
     except importlib.metadata.PackageNotFoundError:
-        return _FALLBACK_ISSUES_URL
+        return None
 
-    url_map = {}
     for entry in metadata.get_all("Project-URL") or []:
         label, _, url = entry.partition(",")
-        url_map[label.strip().lower()] = url.strip().rstrip("/")
+        if label.strip().lower() == "issues" and url.strip() != "":
+            return url.strip()
 
-    if "issues" in url_map:
-        return url_map["issues"]
-
-    source = url_map.get("source")
-    if source is None:
-        return _FALLBACK_ISSUES_URL
-
-    if "gitlab" in source:
-        return f"{source}/-/issues"
-
-    return f"{source}/issues"
+    return None
 
 
 @dataclasses.dataclass(frozen=True)
 class BugReportConfig:
-    url: str = dataclasses.field(default_factory=issues_url)
+    """What the report needs to know about the project."""
+
+    url: str | None = dataclasses.field(default_factory=issues_url)
+    """The issue tracker, or None if the package metadata names none."""
 
 
 @dataclasses.dataclass(frozen=True)
 class InternalFailureReport:
+    """The report printed for an exception that korml did not expect."""
+
     exc: Exception
+    """The exception being reported."""
     styler: TextStyler
+    """The styles of the report."""
     config: BugReportConfig = dataclasses.field(default_factory=BugReportConfig)
+    """What the report needs to know about the project."""
+
+    def _where_to_report(self) -> str:
+        """
+        Return the sentence that says where to report the failure.
+
+        @return The sentence, with the issue tracker if it is known.
+        """
+        if self.config.url is not None:
+            return f"If you would like to report this, please open an issue at: {self.config.url}"
+
+        return (
+            "If you would like to report this, please open an issue in the korml issue "
+            "tracker, named by the Issues entry of [project.urls] in the pyproject.toml "
+            "of korml and in the metadata of the installed package."
+        )
 
     def render(self) -> str:
+        """
+        Return the report as text, with untrusted text escaped.
+
+        @return The whole report.
+        """
         return "\n".join(
             [
                 self.styler.style(
@@ -106,10 +158,7 @@ class InternalFailureReport:
                 self.styler.style("KORML encountered an unexpected internal error.", AnsiCode.BOLD),
                 "This usually indicates a bug in KORML rather than an error in your input.",
                 "",
-                self.styler.style(
-                    f"If you would like to report this, please open an issue at: {self.config.url}",
-                    AnsiCode.YELLOW,
-                ),
+                self.styler.style(self._where_to_report(), AnsiCode.YELLOW),
                 "",
                 "A bug report is most helpful when it includes:",
                 "",
@@ -129,18 +178,43 @@ class InternalFailureReport:
                 ),
                 self.styler.style("## Error Summary", AnsiCode.CYAN, AnsiCode.BOLD),
                 f"- Exception type: {type(self.exc).__name__}",
-                f"- Exception message: {self.exc}",
+                f"- Exception message: {_escape_lines(str(self.exc))}",
                 "",
                 self.styler.style("## Traceback", AnsiCode.CYAN, AnsiCode.BOLD),
                 "```text",
-                traceback.format_exc().rstrip(),
+                _escape_lines(traceback.format_exc().rstrip()),
                 "```",
                 self.styler.style("----- END KORML BUG REPORT -----", AnsiCode.CYAN, AnsiCode.BOLD),
             ]
         )
 
 
+def _escape_lines(text: str) -> str:
+    """
+    Escape the unprintable characters of each line of text, keeping the line breaks.
+
+    An exception message, and the traceback that repeats it, may quote the
+    input that caused the failure, so they are untrusted text: a terminal
+    control in them must not reach the terminal raw, as in every other
+    diagnostic (see korml.error.escape_controls).
+
+    @param text Text that may quote the input.
+
+    @return The text, escaped line by line.
+    """
+    return "\n".join(korml.error.escape_controls(line) for line in text.split("\n"))
+
+
 def render_internal_failure_report(exc: Exception, stream: typing.Any) -> str:
+    """
+    Return the report for exc, styled for the terminal stream if it is one.
+
+    @param exc The exception that korml did not expect.
+
+    @param stream The stream the report goes to.
+
+    @return The report as text.
+    """
     color_policy = ColorPolicy.from_stream(stream)
     styler = TextStyler(color_policy=color_policy)
     report = InternalFailureReport(exc=exc, styler=styler)

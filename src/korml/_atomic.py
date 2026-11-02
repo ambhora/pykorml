@@ -32,6 +32,13 @@ def write_bytes(
     the write and rename, so a link appearing at the final component after
     the check is refused too. On other platforms, atomic replace is used
     without directory-relative operations.
+
+    @param path The path of the output.
+
+    @param data The complete new content.
+
+    @param dangerous_allow_writing_to_symlink Whether to replace the file a symbolic link at the
+        path points to, rather than refuse.
     """
     destination = pathlib.Path(path)
 
@@ -50,8 +57,17 @@ def write_bytes(
 
 
 def _write_posix(destination: pathlib.Path, data: bytes) -> None:
+    """
+    Write data to destination, with the parent directory pinned by a descriptor.
+
+    @param destination The path of the output, not a symbolic link when the call starts.
+
+    @param data The complete new content.
+    """
     parent_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
-    temporary_name = f".{destination.name}.{secrets.token_hex(12)}.tmp"
+    # The name does not repeat the destination's, which may be as long as a
+    # name can be.
+    temporary_name = f".korml.{secrets.token_hex(12)}.tmp"
     try:
         fd = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600, dir_fd=parent_fd)
         try:
@@ -88,10 +104,15 @@ def _write_posix(destination: pathlib.Path, data: bytes) -> None:
 
 
 def _write_portable(destination: pathlib.Path, data: bytes) -> None:
+    """
+    Write data to destination where directory-relative system calls are missing.
+
+    @param destination The path of the output.
+
+    @param data The complete new content.
+    """
     # Non-POSIX fallback: secure temporary creation and atomic replacement.
-    fd, temporary = tempfile.mkstemp(
-        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
-    )
+    fd, temporary = tempfile.mkstemp(prefix=".korml.", suffix=".tmp", dir=destination.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
             try:

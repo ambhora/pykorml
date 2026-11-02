@@ -68,7 +68,7 @@ def test_generate_case_set_rejects_negative_failure_count() -> None:
 
 
 def test_expected_token_array_matches_lexer_output() -> None:
-    source = "%!korml version 1.0\n---\nkey: value\n"
+    source = "%!korml version 1.0\n---\nkey: value\n...\n"
 
     expected = testkorml.yamlgen.expected_token_array(source)
     token_file = korml.lexer.v1.file.lex("<test>", source)
@@ -77,7 +77,7 @@ def test_expected_token_array_matches_lexer_output() -> None:
 
 
 def test_write_pass_case_writes_input_and_expected_json(tmp_path: pathlib.Path) -> None:
-    source = "%!korml version 1.0\n---\nkey: value\n"
+    source = "%!korml version 1.0\n---\nkey: value\n...\n"
 
     testkorml.yamlgen.write_pass_case(
         source=source,
@@ -109,7 +109,7 @@ def test_write_fail_case_writes_input_and_error_json(tmp_path: pathlib.Path) -> 
 
 
 def test_write_fail_case_rejects_source_that_passes_lexing(tmp_path: pathlib.Path) -> None:
-    source = "%!korml version 1.0\n---\nkey: value\n"
+    source = "%!korml version 1.0\n---\nkey: value\n...\n"
 
     with pytest.raises(RuntimeError, match="expected mutated"):
         testkorml.yamlgen.write_fail_case(
@@ -117,3 +117,49 @@ def test_write_fail_case_rejects_source_that_passes_lexing(tmp_path: pathlib.Pat
             output=tmp_path,
             name="not_actually_failing",
         )
+
+
+def test_generator_refuses_documents_without_end_marker() -> None:
+    with pytest.raises(ValueError, match="document_end"):
+        testkorml.yamlgen.generate_one(
+            testkorml.yamlgen.GenerationConfig(seed=1, document_end=False)
+        )
+
+
+def test_generated_sources_are_conforming_korml() -> None:
+    for seed in range(50):
+        source = testkorml.yamlgen.generate_one(
+            testkorml.yamlgen.GenerationConfig(seed=seed, document_count=2)
+        )
+
+        assert len(korml.loads(source)) == 2
+
+
+def test_generated_sources_indent_sequences_under_keys() -> None:
+    for seed in range(50):
+        source = testkorml.yamlgen.generate_one(testkorml.yamlgen.GenerationConfig(seed=seed))
+        line_array = source.splitlines()
+
+        for line, next_line in zip(line_array, line_array[1:], strict=False):
+            if line.endswith(":") and next_line.lstrip().startswith("- "):
+                indent = len(line) - len(line.lstrip())
+                assert len(next_line) - len(next_line.lstrip()) > indent
+
+
+def test_edge_cases_pass_and_fail_as_labelled() -> None:
+    for source in testkorml.yamlgen.mutation.lexer_edge_pass_case_array():
+        korml.loads(source)
+
+    for case in testkorml.yamlgen.mutation.lexer_edge_fail_case_array():
+        with pytest.raises(korml.LexError):
+            korml.lexer.v1.file.lex("<test>", case.source)
+
+
+def test_every_source_mutation_is_rejected_by_the_lexer() -> None:
+    import random
+
+    source = testkorml.yamlgen.generate_one(testkorml.yamlgen.GenerationConfig(seed=7))
+
+    for case in testkorml.yamlgen.mutation.mutate_all(source, rng=random.Random(7)):
+        with pytest.raises(korml.LexError):
+            korml.lexer.v1.file.lex("<test>", case.source)

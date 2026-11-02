@@ -10,6 +10,7 @@ import sys
 
 import korml._atomic
 import korml._limits
+import korml.api
 import korml.error
 import korml.lexer.file
 
@@ -19,6 +20,10 @@ def run(args: argparse.Namespace) -> None:
 
     Korml sources are UTF-8 whatever the locale, so the input is decoded and
     the output encoded as UTF-8; input that is not UTF-8 is a CompilerError.
+    A named input must be a regular file, as for korml.load; a pipe goes
+    through standard input.
+
+    @param args The parsed command line.
     """
     input_path: pathlib.Path = args.input
 
@@ -27,7 +32,7 @@ def run(args: argparse.Namespace) -> None:
         data = sys.stdin.buffer.read(korml._limits.MAX_INPUT_BYTES + 1)
     else:
         filename = str(input_path)
-        with input_path.open("rb") as stream:
+        with korml.api._open_regular_file(input_path) as stream:
             data = stream.read(korml._limits.MAX_INPUT_BYTES + 1)
 
     if len(data) > korml._limits.MAX_INPUT_BYTES:
@@ -38,12 +43,13 @@ def run(args: argparse.Namespace) -> None:
         )
 
     try:
-        # utf-8-sig drops a byte-order mark, as loading does.
-        input_text = data.decode("utf-8-sig")
+        # A byte-order mark is kept, so the lexer rejects it, as loading does.
+        input_text = data.decode("utf-8")
     except UnicodeDecodeError as error:
         raise korml.error.CompilerError(
             message=f"input is not valid UTF-8 at byte {error.start}",
             source_name=filename,
+            code="INVALID_ENCODING",
         ) from error
 
     file = korml.lexer.file.lex(

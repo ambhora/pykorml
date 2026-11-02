@@ -233,13 +233,13 @@ def _find_token_mutation(
 
 def test_parse_mapping_stops_entry_after_multiline_block_scalar_sequence_item() -> None:
     source = """entity_0_0:
-- - value_0
-  - "double value 1"
-- >
-  folded line one 1
+  - - value_0
+    - "double value 1"
+  - >
+    folded line one 1
 
 
-  folded line two 1
+    folded line two 1
 entity_0_1: |
   literal line one 1
   literal line two 1
@@ -262,7 +262,7 @@ entity_0_1: |
     assert mapping.to_builtin() == {
         "entity_0_0": [
             ["value_0", "double value 1"],
-            "folded line one 1\nfolded line two 1\n",
+            "folded line one 1\n\nfolded line two 1\n",
         ],
         "entity_0_1": "literal line one 1\nliteral line two 1\n",
     }

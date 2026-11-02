@@ -21,22 +21,33 @@ Mutation = collections.abc.Callable[
 
 def lexer_edge_pass_case_array() -> list[str]:
     return [
-        "%!korml version 1.0\r\n---\r\nkey: value\r\n",
-        "%!korml version 1.0\n---\n.dot_plain\n",
-        "%!korml version 1.0\n---\n[.dot_plain]\n",
-        "%!korml version 1.0\n---\n-dash_plain\n",
-        "%!korml version 1.0\n---\nkey: |",
-        "%!korml version 1.0\r\n---\r\nkey: |\r\n  line\r\n",
-        "%!korml version 1.0\r\n---\r\nkey: |\r\n\r\n  line\r\n",
-        "%!korml version 1.0\n---\nkey: | header text\n  line\n",
-        "%!korml version 1.0\n---\nkey: >\n  line\n",
-        "%!korml version 1.0\r\n---\r\nkey: >\r\n  line\r\n",
-        "%!korml version 1.0\r\n---\r\nkey: >\r\n\r\n  line\r\n",
-        "%!korml version 1.0\n---\nkey: > header text\n  line\n",
+        "%!korml version 1.0\r\n---\r\nkey: value\r\n...\r\n",
+        "%!korml version 1.0\n---\n.dot_plain\n...\n",
+        "%!korml version 1.0\n---\n[.dot_plain]\n...\n",
+        "%!korml version 1.0\n---\n-dash_plain\n...\n",
+        "%!korml version 1.0\n---\nkey: |\n  line\n...\n",
+        "%!korml version 1.0\r\n---\r\nkey: |\r\n  line\r\n...\r\n",
+        "%!korml version 1.0\r\n---\r\nkey: |\r\n\r\n  line\r\n...\r\n",
+        "%!korml version 1.0\n---\nkey: | # header comment\n  line\n...\n",
+        "%!korml version 1.0\n---\nkey: >\n  line\n...\n",
+        "%!korml version 1.0\r\n---\r\nkey: >\r\n  line\r\n...\r\n",
+        "%!korml version 1.0\r\n---\r\nkey: >\r\n\r\n  line\r\n...\r\n",
+        "%!korml version 1.0\n---\nkey: > # header comment\n  line\n...\n",
+        "%!korml version 1.0\n---\n...\n",
+        "# leading comment\n\n%!korml version 1.0 \t\n---  \nkey: value\n...\t\n\n# trailing\n",
+        "%!korml version 1.0\n---\none\n...\n# between\n---\ntwo\n...",
+        "%!korml version 1.0\n---\na: &x *y !z %w @v `u ?t\n...\n",
+        "%!korml version 1.0\n---\n- - a\n  - b\n- key: v\n  key2: v2\n...\n",
+        "%!korml version 1.0\n---\nk: [a,\n  b]  # comment\n...\n",
+        "%!korml version 1.0\n---\na: b\t# tab before a comment\n...\n",
+        "%!korml version 1.0\n---\na: 'tab\tin quotes'\n...\n",
+        "%!korml version 1.0\n---\nurl: http://x:8080/a\n...\n",
+        '%!korml version 1.0\n---\n{"a": 1}\n...\n',
     ]
 
 
 def lexer_edge_fail_case_array() -> list[MutationResult]:
+    body = "%!korml version 1.0\n---\n{}\n...\n"
     return [
         MutationResult(
             name="empty_source_missing_version_directive",
@@ -44,7 +55,7 @@ def lexer_edge_fail_case_array() -> list[MutationResult]:
         ),
         MutationResult(
             name="whitespace_only_missing_version_directive",
-            source=" \t\r\n",
+            source=" \t\n",
         ),
         MutationResult(
             name="unterminated_single_quoted_scalar_at_eof",
@@ -58,6 +69,45 @@ def lexer_edge_fail_case_array() -> list[MutationResult]:
             name="flow_scalar_boundary_at_eof",
             source='%!korml version 1.0\n---\n["value"',
         ),
+        MutationResult(name="missing_document_end", source="%!korml version 1.0\n---\na: b\n"),
+        MutationResult(name="directive_only", source="%!korml version 1.0\n"),
+        MutationResult(
+            name="directive_with_comment",
+            source="%!korml version 1.0 # c\n---\na: b\n...\n",
+        ),
+        MutationResult(
+            name="directive_with_double_space",
+            source="%!korml  version 1.0\n---\na: b\n...\n",
+        ),
+        MutationResult(name="indented_directive", source=" %!korml version 1.0\n---\na: b\n...\n"),
+        MutationResult(
+            name="document_start_with_comment",
+            source="%!korml version 1.0\n--- # c\na: b\n...\n",
+        ),
+        MutationResult(
+            name="document_end_with_content",
+            source="%!korml version 1.0\n---\na: b\n... x\n",
+        ),
+        MutationResult(name="block_scalar_chomping", source=body.format("a: |-\n  x")),
+        MutationResult(name="block_scalar_indentation", source=body.format("a: |2\n  x")),
+        MutationResult(name="block_scalar_header_text", source=body.format("a: | x\n  y")),
+        MutationResult(name="empty_block_scalar", source=body.format("a: |\nb: c")),
+        MutationResult(name="comma_in_block_plain_scalar", source=body.format("a: b, c")),
+        MutationResult(name="bracket_in_block_plain_scalar", source=body.format("a: x[1]")),
+        MutationResult(name="hash_in_plain_scalar", source=body.format("a: b#c")),
+        MutationResult(name="colon_without_space", source=body.format('{"a":1}')),
+        MutationResult(name="dash_in_flow", source=body.format("[- a]")),
+        MutationResult(name="question_mark_key", source=body.format("? a")),
+        MutationResult(name="plain_scalar_document_end", source=body.format("a: ...")),
+        MutationResult(name="tab_separator", source=body.format("a:\tb")),
+        MutationResult(name="tab_indentation", source=body.format("a:\n\tb: c")),
+        MutationResult(name="raw_control_character", source=body.format("a: '\x1b'")),
+        MutationResult(name="byte_order_mark", source="\ufeff" + body.format("a: b")),
+        MutationResult(name="zero_width_space", source=body.format("admin\u200b: b")),
+        MutationResult(name="zero_width_joiner_in_key", source=body.format("a\u200db: c")),
+        MutationResult(name="line_separator", source=body.format("a: '\u2028'")),
+        MutationResult(name="lone_carriage_return", source=body.format("a: b\rc: d")),
+        MutationResult(name="mixed_line_breaks", source=body.format("a: b\r\nc: d")),
     ]
 
 
@@ -178,6 +228,66 @@ def _remove_document_start(
             )
 
     return None
+
+
+def _remove_document_end(
+    source: str,
+    rng: random.Random,
+) -> MutationResult | None:
+    line_array = source.splitlines(keepends=True)
+
+    for index in range(len(line_array) - 1, -1, -1):
+        if line_array[index].rstrip() == "...":
+            return MutationResult(
+                name="missing_document_end",
+                source="".join(line_array[:index] + line_array[index + 1 :]),
+            )
+
+    return None
+
+
+def _insert_zero_width_space_in_key(
+    source: str,
+    rng: random.Random,
+) -> MutationResult | None:
+    return _insert_after_document_start(
+        source,
+        text="admin\u200b: true\n",
+        name="zero_width_space",
+    )
+
+
+def _insert_block_scalar_chomping_indicator(
+    source: str,
+    rng: random.Random,
+) -> MutationResult | None:
+    return _insert_after_document_start(
+        source,
+        text="chomped: |-\n  text\n",
+        name="block_scalar_chomping",
+    )
+
+
+def _insert_comma_in_block_plain_scalar(
+    source: str,
+    rng: random.Random,
+) -> MutationResult | None:
+    return _insert_after_document_start(
+        source,
+        text="comma: a, b\n",
+        name="comma_in_block_plain_scalar",
+    )
+
+
+def _insert_colon_without_space(
+    source: str,
+    rng: random.Random,
+) -> MutationResult | None:
+    return _insert_after_document_start(
+        source,
+        text='json: {"a":1}\n',
+        name="colon_without_space",
+    )
 
 
 def _insert_unterminated_double_quote_at_eof(
@@ -499,4 +609,9 @@ def _mutation_array() -> list[Mutation]:
         _insert_document_end_inside_flow,
         _insert_literal_block_inside_flow,
         _insert_folded_block_inside_flow,
+        _remove_document_end,
+        _insert_zero_width_space_in_key,
+        _insert_block_scalar_chomping_indicator,
+        _insert_comma_in_block_plain_scalar,
+        _insert_colon_without_space,
     ]
