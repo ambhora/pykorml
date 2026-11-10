@@ -181,6 +181,7 @@ def dumps(
     *,
     version: korml.model.Version = korml.model.Version.v1,
     max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
+    max_output_bytes: int | None = korml._limits.MAX_OUTPUT_BYTES,
 ) -> str:
     """
     Return value as Korml source.
@@ -193,12 +194,21 @@ def dumps(
     is no korml limit, and nesting too deep for Python's recursion limit is
     an EmitError with the code TOO_DEEP.
 
+    max_output_bytes is the longest source written, in bytes of UTF-8; a
+    longer one is an EmitError with the code OUTPUT_TOO_LARGE, raised before
+    the source is built. Indentation grows with nesting and is repeated on
+    every line, so a source can be many times the size of the document it
+    was read from. The default, 4 GiB, only stops a memory bomb; with None
+    there is no limit.
+
     @param value A stream, a korml value, or plain Python data.
 
     @param version The language version to write.
 
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
+
+    @param max_output_bytes The longest source allowed, in bytes, or None for no limit.
 
     @return The Korml source.
     """
@@ -212,7 +222,11 @@ def dumps(
         raise ValueError(f"unsupported korml version: {version.value!r}")
 
     try:
-        return emit(_make_stream(value, version=version, max_depth=max_depth), max_depth=max_depth)
+        return emit(
+            _make_stream(value, version=version, max_depth=max_depth),
+            max_depth=max_depth,
+            max_output_bytes=max_output_bytes,
+        )
     except RecursionError as error:
         raise korml.error.EmitError(
             message=korml._limits.too_deep_message(max_depth),
@@ -227,11 +241,13 @@ def dump(
     version: korml.model.Version = korml.model.Version.v1,
     dangerous_allow_writing_to_symlink: bool = False,
     max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
+    max_output_bytes: int | None = korml._limits.MAX_OUTPUT_BYTES,
 ) -> None:
     """
     Write value as Korml to the file filename, replacing it atomically.
 
-    value and max_depth are as for dumps.
+    value, max_depth and max_output_bytes are as for dumps; nothing is
+    written if the source would be too long.
 
     A symbolic link at filename is refused with UnsafeOutputError unless
     dangerous_allow_writing_to_symlink is true; then the file it points to
@@ -248,10 +264,14 @@ def dump(
 
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
+
+    @param max_output_bytes The longest source allowed, in bytes, or None for no limit.
     """
     korml._atomic.write_bytes(
         filename,
-        dumps(value, version=version, max_depth=max_depth).encode("utf-8"),
+        dumps(
+            value, version=version, max_depth=max_depth, max_output_bytes=max_output_bytes
+        ).encode("utf-8"),
         dangerous_allow_writing_to_symlink=dangerous_allow_writing_to_symlink,
     )
 

@@ -30,6 +30,8 @@ class ErrorCode(str, enum.Enum):
     """A key longer than MAX_KEY_LENGTH when written double-quoted."""
     TOO_DEEP = "TOO_DEEP"
     """Collections nested deeper than max_depth."""
+    OUTPUT_TOO_LARGE = "OUTPUT_TOO_LARGE"
+    """Output longer than max_output_bytes."""
 
     def __str__(self) -> str:
         """
@@ -48,10 +50,75 @@ MAX_KEY_LENGTH = 1024
 _INDENT_WIDTH = 2
 
 
+class _OutputBudget:
+    """
+    The bytes of output an emitter may still write.
+
+    Every line is charged once, where it is produced, with its UTF-8 length
+    and its line break, so the emitter refuses an output larger than the
+    limit before it has built it. Indentation grows with nesting and is
+    repeated on every line, so the output of a deeply nested document can be
+    many times the size of the source it was read from.
+    """
+
+    __slots__ = ("limit", "used")
+
+    def __init__(self, limit: int | None) -> None:
+        """
+        Initialize a budget with nothing used.
+
+        @param limit The largest output allowed, in bytes, or None for no limit.
+        """
+        self.limit = limit
+        """The largest output allowed, in bytes, or None for no limit."""
+        self.used = 0
+        """The bytes charged so far."""
+
+    def charge(self, size: int) -> None:
+        """
+        Charge size bytes, and raise an EmitError if the output exceeds the limit.
+
+        @param size The number of bytes to charge.
+        """
+        self.used += size
+
+        if self.limit is not None and self.used > self.limit:
+            raise korml.error.EmitError(
+                message=f"output exceeds {self.limit} bytes",
+                code=str(ErrorCode.OUTPUT_TOO_LARGE),
+            )
+
+    def line(self, text: str) -> str:
+        """
+        Charge a line and its line break, and return it.
+
+        @param text The line, without its line break.
+
+        @return text.
+        """
+        self.charge(_utf8_length(text) + 1)
+        return text
+
+
+def _utf8_length(text: str) -> int:
+    """
+    Return the length of text in UTF-8.
+
+    @param text The text.
+
+    @return The number of bytes.
+    """
+    if text.isascii():
+        return len(text)
+
+    return len(text.encode("utf-8", errors="surrogatepass"))
+
+
 def emit(
     stream: korml.model.Stream[object],
     *,
     max_depth: int | None = korml._limits.MAX_NESTING_DEPTH,
+    max_output_bytes: int | None = korml._limits.MAX_OUTPUT_BYTES,
 ) -> str:
     """
     Return the v1 source of stream.
@@ -65,10 +132,17 @@ def emit(
     limit, and nesting too deep for Python's recursion limit raises the
     same error.
 
+    max_output_bytes is the longest source written, in bytes of UTF-8; a
+    longer one is an EmitError with the code OUTPUT_TOO_LARGE, raised before
+    the source is built. The default, 4 GiB, only stops a memory bomb; with
+    None there is no limit.
+
     @param stream The stream to write, of version v1.
 
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
+
+    @param max_output_bytes The longest source allowed, in bytes, or None for no limit.
 
     @return The source, with its directive and document markers.
     """
@@ -76,12 +150,14 @@ def emit(
         raise ValueError(f"emitter v1 cannot emit version {stream.version.value!r}")
 
     korml._limits.check_max_depth(max_depth)
-    output: list[str] = ["%!korml version 1.0"]
+    korml._limits.check_max_output_bytes(max_output_bytes)
+    budget = _OutputBudget(max_output_bytes)
+    output: list[str] = [budget.line("%!korml version 1.0")]
 
     for document in stream.document_array or [korml.model.Empty()]:
-        output.append("---")
-        output.extend(_emit_root(document, max_depth=max_depth))
-        output.append("...")
+        output.append(budget.line("---"))
+        output.extend(_emit_root(document, max_depth=max_depth, budget=budget))
+        output.append(budget.line("..."))
 
     return "\n".join(output) + "\n"
 
@@ -101,7 +177,9 @@ def _too_deep_error(max_depth: int | None) -> korml.error.EmitError:
     )
 
 
-def _emit_root(value: korml.model.Value[object], *, max_depth: int | None) -> list[str]:
+def _emit_root(
+    value: korml.model.Value[object], *, max_depth: int | None, budget: _OutputBudget
+) -> list[str]:
     """
     Return the lines of a document body whose root node is value.
 
@@ -115,18 +193,25 @@ def _emit_root(value: korml.model.Value[object], *, max_depth: int | None) -> li
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
 
+    @param budget The output still allowed, charged with every line.
+
     @return The lines, without line breaks.
     """
     if isinstance(value, korml.model.Empty):
         return []
 
     if isinstance(value, korml.model.Scalar):
-        return [_format_double_quoted_scalar(value.value)]
+        return [budget.line(_format_double_quoted_scalar(value.value))]
 
     try:
-        return _emit_collection(value, indent=0, depth=0, max_depth=max_depth)
+        line_array = _emit_collection(value, indent=0, depth=0, max_depth=max_depth, budget=budget)
     except RecursionError as error:
         raise _too_deep_error(max_depth) from error
+
+    if _is_empty_collection(value):
+        budget.line(line_array[0])
+
+    return line_array
 
 
 def _emit_collection(
@@ -135,9 +220,13 @@ def _emit_collection(
     indent: int,
     depth: int,
     max_depth: int | None,
+    budget: _OutputBudget,
 ) -> list[str]:
     """
     Return the lines of a sequence or mapping at a column.
+
+    The line of an empty collection is not charged to budget, since the
+    caller may join it to the line of a key or dash.
 
     @param value The collection to write.
 
@@ -147,6 +236,8 @@ def _emit_collection(
 
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
+
+    @param budget The output still allowed, charged with every line of an entry.
 
     @return The lines, without line breaks.
     """
@@ -162,12 +253,12 @@ def _emit_collection(
     if isinstance(value, korml.model.Sequence):
         if not value.value_array:
             return [" " * indent + "[]"]
-        return _emit_sequence(value, indent=indent, depth=depth, max_depth=max_depth)
+        return _emit_sequence(value, indent=indent, depth=depth, max_depth=max_depth, budget=budget)
 
     if isinstance(value, korml.model.Mapping):
         if not value.value_map:
             return [" " * indent + "{}"]
-        return _emit_mapping(value, indent=indent, depth=depth, max_depth=max_depth)
+        return _emit_mapping(value, indent=indent, depth=depth, max_depth=max_depth, budget=budget)
 
     raise TypeError(f"cannot emit {type(value).__name__!r}")
 
@@ -179,6 +270,7 @@ def _emit_entry(
     indent: int,
     depth: int,
     max_depth: int | None,
+    budget: _OutputBudget,
 ) -> list[str]:
     """
     Return the lines of a mapping or sequence entry whose key or dash is head.
@@ -199,26 +291,43 @@ def _emit_entry(
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
 
+    @param budget The output still allowed, charged with every line.
+
     @return The lines, without line breaks.
     """
     if isinstance(value, korml.model.Scalar):
-        return _emit_scalar_entry(head, value.value, indent=indent)
+        return _emit_scalar_entry(head, value.value, indent=indent, budget=budget)
 
-    is_empty_collection = (isinstance(value, korml.model.Sequence) and not value.value_array) or (
-        isinstance(value, korml.model.Mapping) and not value.value_map
-    )
+    is_empty_collection = _is_empty_collection(value)
+
+    if not is_empty_collection:
+        budget.line(head)
 
     line_array = _emit_collection(
         value,
         indent=0 if is_empty_collection else indent + _INDENT_WIDTH,
         depth=depth,
         max_depth=max_depth,
+        budget=budget,
     )
 
     if is_empty_collection:
-        return [head + " " + line_array[0]]
+        return [budget.line(head + " " + line_array[0])]
 
     return [head, *line_array]
+
+
+def _is_empty_collection(value: korml.model.Value[object]) -> bool:
+    """
+    Return whether value is a sequence or mapping without entries.
+
+    @param value The value.
+
+    @return True for an empty sequence or mapping.
+    """
+    return (isinstance(value, korml.model.Sequence) and not value.value_array) or (
+        isinstance(value, korml.model.Mapping) and not value.value_map
+    )
 
 
 def _emit_sequence(
@@ -227,6 +336,7 @@ def _emit_sequence(
     indent: int,
     depth: int,
     max_depth: int | None,
+    budget: _OutputBudget,
 ) -> list[str]:
     """
     Return the lines of a non-empty sequence, one entry after another.
@@ -240,6 +350,8 @@ def _emit_sequence(
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
 
+    @param budget The output still allowed, charged with every line.
+
     @return The lines, without line breaks.
     """
     line_array: list[str] = []
@@ -247,7 +359,12 @@ def _emit_sequence(
     for value in sequence.value_array:
         line_array.extend(
             _emit_entry(
-                " " * indent + "-", value, indent=indent, depth=depth + 1, max_depth=max_depth
+                " " * indent + "-",
+                value,
+                indent=indent,
+                depth=depth + 1,
+                max_depth=max_depth,
+                budget=budget,
             )
         )
 
@@ -260,6 +377,7 @@ def _emit_mapping(
     indent: int,
     depth: int,
     max_depth: int | None,
+    budget: _OutputBudget,
 ) -> list[str]:
     """
     Return the lines of a non-empty mapping, one entry after another.
@@ -272,6 +390,8 @@ def _emit_mapping(
 
     @param max_depth The deepest nesting of collections allowed, or None for no limit imposed by
         korml.
+
+    @param budget The output still allowed, charged with every line.
 
     @return The lines, without line breaks.
     """
@@ -295,15 +415,19 @@ def _emit_mapping(
                 indent=indent,
                 depth=depth + 1,
                 max_depth=max_depth,
+                budget=budget,
             )
         )
 
     return line_array
 
 
-def _emit_scalar_entry(head: str, value: str, *, indent: int) -> list[str]:
+def _emit_scalar_entry(head: str, value: str, *, indent: int, budget: _OutputBudget) -> list[str]:
     """
     Return the lines of an entry whose value is a scalar, after head.
+
+    A block scalar is charged to budget before any of its lines is built,
+    since its indentation is repeated on every line of the value.
 
     @param head The text of the line so far: the indentation and the key or dash.
 
@@ -311,14 +435,23 @@ def _emit_scalar_entry(head: str, value: str, *, indent: int) -> list[str]:
 
     @param indent The column of the key or dash.
 
+    @param budget The output still allowed, charged with every line.
+
     @return The lines, without line breaks.
     """
     if not _is_literal_block_safe(value):
-        return [head + " " + _format_double_quoted_scalar(value)]
+        # Built before it is charged; its size is bounded by value itself.
+        return [budget.line(head + " " + _format_double_quoted_scalar(value))]
 
     # The content indentation of a block scalar is the column of its key or
     # dash plus the indentation width.
     prefix = " " * (indent + _INDENT_WIDTH)
+
+    # The head line with ' |', then each line of value after prefix; value
+    # ends with its only final line feed, which is the break of its last line.
+    budget.charge(
+        _utf8_length(head) + len(" |\n") + value.count("\n") * len(prefix) + _utf8_length(value)
+    )
 
     return [head + " |", *(prefix + line for line in value[:-1].split("\n"))]
 

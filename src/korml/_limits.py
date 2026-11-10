@@ -8,6 +8,11 @@ MAX_INPUT_BYTES = 8 * 1024 * 1024
 MAX_TOKENS = 100_000
 MAX_PARSE_WORK = 1_000_000
 
+# The default longest source the emitters write. It is far above any
+# document korml reads by default, so it only stops a memory bomb: a value
+# whose indented source would grow far beyond the value itself.
+MAX_OUTPUT_BYTES = 4 * 1024 * 1024 * 1024
+
 # The default deepest nesting of collections that korml reads or writes: a
 # collection inside 127 others is accepted, one inside 128 is not. The parser,
 # the emitter, the model and the schema code recurse once per level, and the
@@ -35,6 +40,26 @@ def check_max_depth(max_depth: int | None) -> None:
 
     if max_depth <= 0:
         raise ValueError(f"max_depth must be positive, not {max_depth}")
+
+
+def check_max_output_bytes(max_output_bytes: int | None) -> None:
+    """
+    Raise if max_output_bytes is not a valid output limit.
+
+    A limit is an integer of at least zero, or None for no limit.
+
+    @param max_output_bytes The limit to check.
+    """
+    if max_output_bytes is None:
+        return
+
+    if isinstance(max_output_bytes, bool) or not isinstance(max_output_bytes, int):
+        raise TypeError(
+            f"max_output_bytes must be an integer or None, not {type(max_output_bytes).__name__}"
+        )
+
+    if max_output_bytes < 0:
+        raise ValueError(f"max_output_bytes must not be negative, not {max_output_bytes}")
 
 
 def is_too_deep(depth: int, max_depth: int | None) -> bool:
