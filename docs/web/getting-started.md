@@ -113,7 +113,9 @@ LexError: unterminated double-quoted scalar
 
 A program that must not print what it read, such as one reading secrets,
 uses `error.describe(quote_source=False)`, which gives the message and the
-position without the source line.
+position without the source line. The message then names what is wrong, such
+as a plain scalar or a duplicate mapping key, without quoting it. `message()`
+and `str(error)` still quote the text at fault.
 
 ## The command line
 
