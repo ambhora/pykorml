@@ -162,3 +162,117 @@ def test_schema_messages_escape_controls_and_keep_one_line_per_error() -> None:
 
     assert "\x1b" not in str(error)
     assert "types.a\\x1bb must be a mapping" in str(error)
+
+
+_HEADER = "%!korml version 1.0\n---\n"
+
+
+@pytest.mark.parametrize(
+    ("source", "secret"),
+    [
+        (_HEADER + "db:\n  password:\n    VDUMMY-1\n...\n", "VDUMMY-1"),
+        (_HEADER + 'db:\n  password:\n    "VDUMMY-2"\n...\n', "VDUMMY-2"),
+        ("db:\n  password:\n    VDUMMY-3\n", "VDUMMY-3"),
+        (_HEADER + "keys:\n  - a\n|\n  VDUMMY-4\n...\n", "VDUMMY-4"),
+        (_HEADER + "tokens:\n  VDUMMY-5: ci\n  VDUMMY-5: deploy\n...\n", "VDUMMY-5"),
+        ("tokens:\n  VDUMMY-6: ci\n  VDUMMY-6: deploy\n", "VDUMMY-6"),
+        (_HEADER + "VDUMMY-7\nVDUMMY-7b\n...\n", "VDUMMY-7"),
+        (_HEADER + 'password: "VDUMMY-8" extra\n...\n', "extra"),
+        (_HEADER + 'password: "\\uD800"\n...\n', "D800"),
+        ("%!korml version VDUMMY-9\n---\na: 1\n...\n", "VDUMMY-9"),
+    ],
+)
+def test_unquoted_description_leaves_document_text_out_of_the_message(
+    source: str, secret: str
+) -> None:
+    with pytest.raises(korml.error.CompilerError) as exc_info:
+        korml.loads(source, filename="app.korml")
+
+    unquoted = exc_info.value.describe(quote_source=False)
+
+    assert secret in exc_info.value.message()
+    assert secret in str(exc_info.value)
+    assert secret not in unquoted
+    assert "--> app.korml:" in unquoted
+
+
+_SCHEMA_SOURCE = """%!korml version 1.0
+---
+schema: korml.schema.v1
+root:
+  type: Config
+types:
+  Mode:
+    kind: enum
+    enum:
+      - debug
+      - release
+  String:
+    kind: scalar
+  Config:
+    kind: mapping
+    fields:
+      mode:
+        type: Mode
+      password:
+        type: String
+...
+"""
+
+
+def _schema() -> korml.schema.Schema:
+    """
+    Return a schema with an enum field and a string field.
+
+    @return The schema.
+    """
+    return korml.schema.compile_schema(korml.loads(_SCHEMA_SOURCE).to_builtin()[0])
+
+
+def test_unquoted_construction_error_leaves_document_values_out() -> None:
+    value = korml.loads("mode: VDUMMY-11\nVDUMMY-12: x\npassword: ok\n").to_builtin()[0]
+
+    with pytest.raises(korml.schema.ConstructionError) as exc_info:
+        korml.schema.construct(value, _schema())
+
+    unquoted = exc_info.value.describe(quote_source=False)
+
+    assert "VDUMMY-11" in str(exc_info.value)
+    assert "VDUMMY-12" in str(exc_info.value)
+    assert unquoted.splitlines()[:2] == [
+        "ConstructionError: invalid enum value for Mode",
+        "unknown field",
+    ]
+    assert "VDUMMY" not in unquoted
+
+
+def test_unquoted_construction_error_leaves_a_constructor_message_out() -> None:
+    def fail(*args: object, **kwargs: object) -> object:
+        """
+        Fail with a message that repeats the values given.
+
+        @param args The positional values.
+
+        @param kwargs The keyword values.
+
+        @return Nothing; it always raises.
+        """
+        raise ValueError(f"cannot use {args} {kwargs}")
+
+    value = korml.loads("mode: debug\npassword: VDUMMY-13\n").to_builtin()[0]
+
+    with pytest.raises(korml.schema.ConstructionError) as exc_info:
+        korml.schema.construct(value, _schema(), {"Config": fail})
+
+    assert "VDUMMY-13" in str(exc_info.value)
+    assert "VDUMMY-13" not in exc_info.value.describe(quote_source=False)
+    assert "a constructor raised ValueError" in exc_info.value.describe(quote_source=False)
+
+
+def test_unquoted_invalid_value_error_leaves_the_path_of_document_keys_out() -> None:
+    error = korml.schema.v1.InvalidValueError(
+        code=korml.schema.v1.ErrorCode.TOO_DEEP, path=("VDUMMY-14",), message="too deep"
+    )
+
+    assert "VDUMMY-14" in str(error)
+    assert "VDUMMY-14" not in error.describe(quote_source=False)

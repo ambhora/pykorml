@@ -2010,6 +2010,7 @@ def _lex_version_directive(
         case _:
             raise korml.error.LexError(
                 message=f"unsupported korml version {version_text!r}; expected '1.0'",
+                unquoted_message="unsupported korml version; expected '1.0'",
                 code=korml.lexer.v1.ErrorCode.INVALID_VERSION_DIRECTIVE,
                 source_name=lexer_state.source_file.filename,
                 span=_make_error_span(lexer_state.position),

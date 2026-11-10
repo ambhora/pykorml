@@ -430,12 +430,13 @@ def _decode_flow_scalar(token: korml.lexer.v1.Token, *, source_name: str) -> str
         case korml.lexer.v1.TokenType.DQ_SCALAR:
             try:
                 return _parse_double_quoted_scalar_value(token.value)
-            except ValueError as error:
+            except _EscapeError as error:
                 raise _make_parse_error(
                     ErrorCode.INVALID_ESCAPE,
                     message=str(error),
                     source_name=source_name,
                     at=token,
+                    unquoted_message=error.unquoted_message,
                 ) from error
 
         case _:
@@ -456,6 +457,21 @@ def _parse_single_quoted_scalar_value(source: str) -> str:
     @return The string.
     """
     return source[1:-1].replace("''", "'")
+
+
+class _EscapeError(ValueError):
+    """An escape in a double-quoted scalar that does not stand for a character."""
+
+    def __init__(self, message: str, *, unquoted_message: str) -> None:
+        """
+        Initialize the error with its message and the message without the escape.
+
+        @param message What is wrong, quoting the escape.
+
+        @param unquoted_message What is wrong, without text of the source.
+        """
+        super().__init__(message)
+        self.unquoted_message = unquoted_message
 
 
 def _parse_double_quoted_scalar_value(source: str) -> str:
@@ -496,13 +512,19 @@ def _parse_double_quoted_scalar_value(source: str) -> str:
 
         if length is None or len(digits) != length or not _is_hex(digits):
             escape = "\\" + escaped_char
-            raise ValueError(f"invalid escape {escape!r} in double-quoted scalar")
+            raise _EscapeError(
+                f"invalid escape {escape!r} in double-quoted scalar",
+                unquoted_message="invalid escape in double-quoted scalar",
+            )
 
         code_point = int(digits, 16)
 
         if 0xD800 <= code_point <= 0xDFFF or code_point > 0x10FFFF:
             escape = "\\" + escaped_char + digits
-            raise ValueError(f"escape {escape!r} is not a Unicode scalar value")
+            raise _EscapeError(
+                f"escape {escape!r} is not a Unicode scalar value",
+                unquoted_message="escape is not a Unicode scalar value",
+            )
 
         output.append(chr(code_point))
         index += length
@@ -768,6 +790,7 @@ def _make_parse_error(
     message: str,
     source_name: str,
     at: korml.lexer.v1.Token | None,
+    unquoted_message: str | None = None,
 ) -> korml.error.ParseError:
     """
     Build a ParseError located at the token at, if there is one.
@@ -780,6 +803,9 @@ def _make_parse_error(
 
     @param at The token at fault, or None if there is none.
 
+    @param unquoted_message What is wrong, without text of the source; None if message quotes
+        none.
+
     @return The error.
     """
     return korml.error.ParseError(
@@ -787,6 +813,7 @@ def _make_parse_error(
         source_name=source_name,
         span=at.span if at is not None else None,
         code=str(code),
+        unquoted_message=unquoted_message,
     )
 
 
@@ -1100,11 +1127,24 @@ class _Layouter:
 # --------------------------------------------------------------------------------------------------
 
 
-def _describe_event(event: _Event) -> str:
+_SCALAR_KIND_MAP = {
+    korml.lexer.v1.TokenType.PLAIN_SCALAR: "plain scalar content",
+    korml.lexer.v1.TokenType.SQ_SCALAR: "single-quoted scalar content",
+    korml.lexer.v1.TokenType.DQ_SCALAR: "double-quoted scalar content",
+    korml.lexer.v1.TokenType.LITERAL_BLOCK_SCALAR: "literal block scalar content",
+    korml.lexer.v1.TokenType.FOLDED_BLOCK_SCALAR: "folded block scalar content",
+}
+"""How a message names a scalar token when it must not quote the source."""
+
+
+def _describe_event(event: _Event, *, quote: bool = True) -> str:
     """
     Describe a token for a message such as "unexpected <description>".
 
     @param event The token.
+
+    @param quote Whether the description may quote the text of a scalar token; without it, a
+        scalar is named by its kind, and only syntax tokens are quoted.
 
     @return The description.
     """
@@ -1119,6 +1159,8 @@ def _describe_event(event: _Event) -> str:
             return "end of document"
         case _:
             assert event.token is not None
+            if not quote and event.kind in _SCALAR_KIND_MAP:
+                return _SCALAR_KIND_MAP[event.kind]
             return f"content {event.token.value!r}"
 
 
@@ -1199,20 +1241,37 @@ class _Parser:
 
         return event
 
-    def error(self, code: ErrorCode, message: str, event: _Event) -> korml.error.ParseError:
+    def error(
+        self,
+        code: ErrorCode,
+        message: str | collections.abc.Callable[[str], str],
+        event: _Event,
+    ) -> korml.error.ParseError:
         """
         Return a ParseError located at a token.
 
         @param code The error code.
 
-        @param message What is wrong.
+        @param message What is wrong; or a function that says what is wrong given a description
+            of the token, called once with a description that quotes it and once with one that
+            does not, for describe(quote_source=False).
 
         @param event The token at fault.
 
         @return The error.
         """
+        unquoted_message = None
+
+        if callable(message):
+            unquoted_message = message(_describe_event(event, quote=False))
+            message = message(_describe_event(event))
+
         return _make_parse_error(
-            code, message=message, source_name=self.source_name, at=event.token
+            code,
+            message=message,
+            source_name=self.source_name,
+            at=event.token,
+            unquoted_message=unquoted_message,
         )
 
     def expect(self, kind: _Layout, after: str) -> None:
@@ -1228,7 +1287,7 @@ class _Parser:
         if event.kind is not kind:
             raise self.error(
                 ErrorCode.UNEXPECTED_CONTENT,
-                f"unexpected {_describe_event(event)} after {after}",
+                lambda what: f"unexpected {what} after {after}",
                 event,
             )
 
@@ -1307,7 +1366,7 @@ class _Parser:
         if event.kind is not _Layout.EOF:
             raise self.error(
                 ErrorCode.UNEXPECTED_CONTENT,
-                f"unexpected {_describe_event(event)} after the root node",
+                lambda what: f"unexpected {what} after the root node",
                 event,
             )
 
@@ -1364,8 +1423,10 @@ class _Parser:
 
         raise self.error(
             ErrorCode.EXPECTED_VALUE,
-            f"expected a block mapping or sequence, found {_describe_event(event)}; "
-            "a scalar or flow collection goes on the line of its key or dash",
+            lambda what: (
+                f"expected a block mapping or sequence, found {what}; "
+                "a scalar or flow collection goes on the line of its key or dash"
+            ),
             event,
         )
 
@@ -1393,7 +1454,7 @@ class _Parser:
             if event.kind not in _FLOW_SCALAR_TOKEN_TYPE_SET:
                 raise self.error(
                     ErrorCode.UNEXPECTED_CONTENT,
-                    f"unexpected {_describe_event(event)}; expected a mapping key",
+                    lambda what: f"unexpected {what}; expected a mapping key",
                     event,
                 )
 
@@ -1501,7 +1562,7 @@ class _Parser:
             if event.kind is not korml.lexer.v1.TokenType.DASH_ITEM:
                 raise self.error(
                     ErrorCode.UNEXPECTED_CONTENT,
-                    f"unexpected {_describe_event(event)}; expected a sequence entry",
+                    lambda what: f"unexpected {what}; expected a sequence entry",
                     event,
                 )
 
@@ -1671,14 +1732,17 @@ class _Parser:
                 event,
             )
 
-        message = f"expected value, found {_describe_event(event)}"
-
         if event.kind is korml.lexer.v1.TokenType.FLOW_SEPARATOR:
-            message = "missing entry before flow separator"
-        elif event.kind in _FLOW_END_TOKEN_TYPE_SET:
-            message = "a flow collection cannot end with ','"
+            raise self.error(ErrorCode.EXPECTED_VALUE, "missing entry before flow separator", event)
 
-        raise self.error(ErrorCode.EXPECTED_VALUE, message, event)
+        if event.kind in _FLOW_END_TOKEN_TYPE_SET:
+            raise self.error(
+                ErrorCode.EXPECTED_VALUE, "a flow collection cannot end with ','", event
+            )
+
+        raise self.error(
+            ErrorCode.EXPECTED_VALUE, lambda what: f"expected value, found {what}", event
+        )
 
     def parse_flow_sequence(
         self, start: int, depth: int
@@ -1711,8 +1775,7 @@ class _Parser:
                 if event.kind is not korml.lexer.v1.TokenType.FLOW_SEPARATOR:
                     raise self.error(
                         ErrorCode.UNEXPECTED_CONTENT,
-                        f"unexpected {_describe_event(event)}; "
-                        "expected ',' or ']' in flow sequence",
+                        lambda what: f"unexpected {what}; expected ',' or ']' in flow sequence",
                         event,
                     )
 
@@ -1763,7 +1826,7 @@ class _Parser:
                 if key_event.kind not in _FLOW_SCALAR_TOKEN_TYPE_SET:
                     raise self.error(
                         ErrorCode.EXPECTED_SCALAR,
-                        f"a flow mapping key must be a scalar, found {_describe_event(key_event)}",
+                        lambda what: f"a flow mapping key must be a scalar, found {what}",
                         key_event,
                     )
 
@@ -1807,8 +1870,7 @@ class _Parser:
                 if event.kind is not korml.lexer.v1.TokenType.FLOW_SEPARATOR:
                     raise self.error(
                         ErrorCode.UNEXPECTED_CONTENT,
-                        f"unexpected {_describe_event(event)}; "
-                        "expected ',' or '}' in flow mapping",
+                        lambda what: f"unexpected {what}; expected ',' or '}}' in flow mapping",
                         event,
                     )
 
@@ -1847,6 +1909,7 @@ def _add_unique_item(
             message=f"duplicate mapping key {key!r}",
             source_name=source_name,
             at=key_token,
+            unquoted_message="duplicate mapping key",
         )
 
     mapping.add_item(key, value)

@@ -76,6 +76,8 @@ class ValidationError:
     """Where it is: the keys and indices from the root to the value."""
     message: str
     """What is wrong, for a reader; it may quote the document."""
+    unquoted_message: str | None = None
+    """What is wrong, without text of the document; None if message quotes none of it."""
 
 
 class SchemaError(korml.error.KormlError, ValueError):
@@ -120,6 +122,12 @@ class ConstructionError(korml.error.KormlError, ValueError):
                 korml.error.escape_controls(error.message) for error in self.error_array
             ),
             code=ErrorCode.CONSTRUCTION_FAILED.value,
+            unquoted_message="\n".join(
+                korml.error.escape_controls(
+                    error.message if error.unquoted_message is None else error.unquoted_message
+                )
+                for error in self.error_array
+            ),
         )
 
 
@@ -147,6 +155,8 @@ class InvalidValueError(korml.error.KormlError, ValueError):
         super().__init__(
             message=f"{korml.error.escape_controls(_format_path(path))}: {message}",
             code=code.value,
+            # The path is made of the keys of the document.
+            unquoted_message=message,
         )
 
 
@@ -417,6 +427,8 @@ def construct(
                     code=ErrorCode.CONSTRUCTION_FAILED,
                     path=(),
                     message=str(error),
+                    # A constructor's own message may repeat the values it was given.
+                    unquoted_message=f"a constructor raised {type(error).__name__}",
                 )
             ]
         ) from error
@@ -1039,6 +1051,7 @@ def _validate_mapping(
                     code=ErrorCode.UNKNOWN_FIELD,
                     path=path + (key,),
                     message=f"unknown field {key!r}",
+                    unquoted_message="unknown field",
                 )
             )
             continue
@@ -1089,6 +1102,7 @@ def _validate_enum(
             code=ErrorCode.INVALID_ENUM_VALUE,
             path=path,
             message=f"invalid enum value {value!r} for {type_definition.name}",
+            unquoted_message=f"invalid enum value for {type_definition.name}",
         )
     ]
 

@@ -87,7 +87,13 @@ class KormlError(Exception):
     preferred whenever the error belongs to a more precise category.
     """
 
-    def __init__(self, *, message: str, code: str | None = None):
+    def __init__(
+        self,
+        *,
+        message: str,
+        code: str | None = None,
+        unquoted_message: str | None = None,
+    ):
         """
         Initialize a generic korml error.
 
@@ -96,8 +102,12 @@ class KormlError(Exception):
         @param code Optional machine-readable error code. This is useful for tests, structured
             diagnostics, and downstream tools that should not depend on the exact wording of the
             message.
+
+        @param unquoted_message The message without the text it quotes from the source, for
+            describe(quote_source=False); None if message quotes no source text.
         """
         self._message = message
+        self._unquoted_message = message if unquoted_message is None else unquoted_message
         self._code = code
         super().__init__(message)
 
@@ -108,6 +118,16 @@ class KormlError(Exception):
         @return The message.
         """
         return self._message
+
+    def _message_for(self, quote_source: bool) -> str:
+        """
+        Return the message, or its form without source text unless quote_source.
+
+        @param quote_source Whether the message may include text of the source.
+
+        @return The message for a description.
+        """
+        return self._message if quote_source else self._unquoted_message
 
     def code(self) -> str | None:
         """
@@ -147,13 +167,16 @@ class KormlError(Exception):
 
         With quote_source False, the description gives positions but no text
         of the source, for programs that must not print the content of what
-        they read, such as configuration files holding secrets.
+        they read, such as configuration files holding secrets. The message
+        then names what is at fault, such as a plain scalar or a mapping key,
+        instead of quoting it; it may still name the syntax character at
+        fault, such as ',' or '|'. message() and str() keep the quoting form.
 
         @param quote_source Whether the description may include text of the source.
 
         @return The description.
         """
-        message = self._message
+        message = self._message_for(quote_source)
         if self._code is None:
             return f"{self.__class__.__name__}: {message}"
 
@@ -313,6 +336,7 @@ class CompilerError(KormlError):
         message: str,
         source_name: str,
         code: str | None = None,
+        unquoted_message: str | None = None,
     ):
         """
         Initialize an error associated with an input source.
@@ -324,9 +348,12 @@ class CompilerError(KormlError):
             caller-provided label.
 
         @param code Optional machine-readable error code.
+
+        @param unquoted_message The message without the text it quotes from the source; None if
+            message quotes no source text.
         """
         self._source_name = source_name
-        super().__init__(message=message, code=code)
+        super().__init__(message=message, code=code, unquoted_message=unquoted_message)
 
     def source_name(self) -> str:
         """
@@ -353,12 +380,12 @@ class CompilerError(KormlError):
         """
         Return a human-readable compiler diagnostic.
 
-        @param quote_source Unused; this error quotes no source.
+        @param quote_source Whether the message may include text of the source.
 
         @return The description.
         """
         lines = [
-            f"{self.__class__.__name__}: {self._message}",
+            f"{self.__class__.__name__}: {self._message_for(quote_source)}",
             f"  --> {escape_controls(self._source_name)}",
         ]
 
@@ -388,6 +415,7 @@ class LexError(CompilerError):
         span: korml.core.Span,
         source_line: str | None = None,
         code: str | None = None,
+        unquoted_message: str | None = None,
     ):
         """
         Initialize a lexer error over a concrete source span.
@@ -401,6 +429,9 @@ class LexError(CompilerError):
         @param source_line The full source line, if available.
 
         @param code Optional machine-readable error code.
+
+        @param unquoted_message The message without the text it quotes from the source; None if
+            message quotes no source text.
         """
         self._span = span
         self._source_line = source_line
@@ -408,6 +439,7 @@ class LexError(CompilerError):
             message=message,
             source_name=source_name,
             code=code,
+            unquoted_message=unquoted_message,
         )
 
     def span(self) -> korml.core.Span:
@@ -449,7 +481,7 @@ class LexError(CompilerError):
         column = self._span.start.column
 
         lines = [
-            f"{self.__class__.__name__}: {self._message}",
+            f"{self.__class__.__name__}: {self._message_for(quote_source)}",
             f"  --> {escape_controls(self._source_name)}:{line}:{column}",
         ]
 
@@ -505,6 +537,7 @@ class ParseError(CompilerError):
         source_name: str,
         span: korml.core.Span | None,
         code: str | None = None,
+        unquoted_message: str | None = None,
     ):
         """
         Initialize a parser error, located at span if it is known.
@@ -516,12 +549,16 @@ class ParseError(CompilerError):
         @param span The span of the token at fault, or None if there is none.
 
         @param code Optional machine-readable error code.
+
+        @param unquoted_message The message without the text it quotes from the source; None if
+            message quotes no source text.
         """
         self._span = span
         super().__init__(
             message=message,
             source_name=source_name,
             code=code,
+            unquoted_message=unquoted_message,
         )
 
     def span(self) -> korml.core.Span | None:
@@ -546,7 +583,7 @@ class ParseError(CompilerError):
         """
         Return a human-readable parser diagnostic.
 
-        @param quote_source Unused; this error quotes no source.
+        @param quote_source Whether the message may include text of the source.
 
         @return The description.
         """
@@ -556,7 +593,7 @@ class ParseError(CompilerError):
             location += f":{self._span.start.line}:{self._span.start.column}"
 
         lines = [
-            f"{self.__class__.__name__}: {self._message}",
+            f"{self.__class__.__name__}: {self._message_for(quote_source)}",
             f"  --> {escape_controls(location)}",
         ]
 

@@ -113,7 +113,9 @@ LexError: unterminated double-quoted scalar
 
 A program that must not print what it read, such as one reading secrets,
 uses `error.describe(quote_source=False)`, which gives the message and the
-position without the source line.
+position without the source line. The message then names what is wrong, such
+as a plain scalar or a duplicate mapping key, without quoting it. `message()`
+and `str(error)` still quote the text at fault.
 
 ## The command line
 
@@ -148,6 +150,15 @@ levels. Passing `None` disables a particular limit; for `max_depth`, nesting
 too deep for Python's recursion limit still raises a `KormlError` with the
 code `TOO_DEEP`. Do not disable limits for documents supplied by untrusted
 users.
+
+`dumps` and `dump` limit the length of what they write with
+`max_output_bytes`, by default 4 GiB. Indentation grows with nesting and is
+repeated on every line, so the source of a deeply nested value can be many
+times the size of the value. The default only stops such a memory bomb; it
+is far above what `loads` reads by default, so a source that `dumps` writes
+may be too large for `loads` to read back under its default limits. A longer
+source raises a `KormlError` with the code `OUTPUT_TOO_LARGE` before it is
+built, and `dump` then writes nothing. Passing `None` disables the limit.
 
 Both `korml.dump` and the CLI's file output atomically replace their target
 once rendering succeeds. An output path that is a symbolic link is refused
